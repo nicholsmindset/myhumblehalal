@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { businesses, reviews, users } from '../services/db';
+import { businesses, reviews, users, businessClaims, leads } from '../services/db';
 import { useAuth } from '../contexts/AuthContext';
-import { Business, User, UserReview } from '../types';
+import { Business, User, UserReview, BusinessClaim, Lead } from '../types';
 
 const AdminDashboardPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('Dashboard');
@@ -27,10 +27,18 @@ const AdminDashboardPage: React.FC = () => {
     // Users tab
     const [allUsers, setAllUsers] = useState<User[]>([]);
 
+    // Claims tab
+    const [allClaims, setAllClaims] = useState<BusinessClaim[]>([]);
+
+    // Leads tab (load for each business on demand — we show all leads)
+    const [allLeads, setAllLeads] = useState<Lead[]>([]);
+
     const menuItems = [
         { name: 'Dashboard', icon: 'dashboard' },
         { name: 'Submissions', icon: 'pending_actions' },
         { name: 'Business Listings', icon: 'storefront' },
+        { name: 'Claims', icon: 'assignment_turned_in' },
+        { name: 'Leads', icon: 'contact_mail' },
         { name: 'Users', icon: 'groups' },
         { name: 'Analytics', icon: 'bar_chart' },
         { name: 'Settings', icon: 'settings' }
@@ -67,6 +75,24 @@ const AdminDashboardPage: React.FC = () => {
         setAllUsers(list);
     }, []);
 
+    const fetchAllClaims = useCallback(async () => {
+        try {
+            const list = await businessClaims.list();
+            setAllClaims(list);
+        } catch { /* table may not exist yet before migration runs */ }
+    }, []);
+
+    const fetchAllLeads = useCallback(async () => {
+        // Leads are per-business; load recent ones from first approved businesses
+        try {
+            const bizResult = await businesses.list({ status: 'Approved', limit: 20 });
+            const leadArrays = await Promise.all(
+                bizResult.data.map(b => leads.listByBusiness(b.id).catch(() => [] as Lead[]))
+            );
+            setAllLeads(leadArrays.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+        } catch { /* table may not exist yet before migration runs */ }
+    }, []);
+
     // Fetch stats and activity on mount
     useEffect(() => {
         fetchStats();
@@ -78,7 +104,9 @@ const AdminDashboardPage: React.FC = () => {
         if (activeTab === 'Submissions') fetchPendingSubmissions();
         if (activeTab === 'Business Listings') fetchApprovedBusinesses();
         if (activeTab === 'Users') fetchAllUsers();
-    }, [activeTab, fetchPendingSubmissions, fetchApprovedBusinesses, fetchAllUsers]);
+        if (activeTab === 'Claims') fetchAllClaims();
+        if (activeTab === 'Leads') fetchAllLeads();
+    }, [activeTab, fetchPendingSubmissions, fetchApprovedBusinesses, fetchAllUsers, fetchAllClaims, fetchAllLeads]);
 
     const handleApprove = async (id: string) => {
         await businesses.update(id, { status: 'Approved' });
@@ -245,7 +273,7 @@ const AdminDashboardPage: React.FC = () => {
                             </div>
                             <div className="flex gap-2 shrink-0">
                                 <button
-                                    onClick={() => navigate(`/business/${biz.id}`)}
+                                    onClick={() => navigate(`/business/${biz.slug ?? biz.id}`)}
                                     className="p-3 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
                                     title="View"
                                 >
@@ -368,11 +396,96 @@ const AdminDashboardPage: React.FC = () => {
         </section>
     );
 
+    const renderClaims = () => (
+        <section className="space-y-6">
+            {allClaims.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center space-y-3">
+                    <span className="material-symbols-outlined text-4xl text-gray-300">assignment_turned_in</span>
+                    <p className="text-gray-400 font-medium">No business claims yet.</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {allClaims.map(claim => (
+                        <div key={claim.id} className="bg-white border border-gray-100 rounded-2xl p-6 flex items-start justify-between gap-6">
+                            <div className="space-y-1 flex-1 min-w-0">
+                                <p className="font-black text-sm text-charcoal">Business ID: {claim.businessId}</p>
+                                <p className="text-xs text-gray-500">{claim.message}</p>
+                                {claim.proofUrl && (
+                                    <a href={claim.proofUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline font-bold">View Proof →</a>
+                                )}
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider">{new Date(claim.createdAt).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${claim.status === 'pending' ? 'bg-amber-100 text-amber-700' : claim.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                    {claim.status}
+                                </span>
+                                {claim.status === 'pending' && (
+                                    <>
+                                        <button
+                                            onClick={async () => { await businessClaims.updateStatus(claim.id, 'approved'); fetchAllClaims(); }}
+                                            className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase hover:bg-emerald-200 transition-colors"
+                                        >Approve</button>
+                                        <button
+                                            onClick={async () => { await businessClaims.updateStatus(claim.id, 'rejected'); fetchAllClaims(); }}
+                                            className="px-3 py-1 bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase hover:bg-red-200 transition-colors"
+                                        >Reject</button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+
+    const renderLeads = () => (
+        <section className="space-y-6">
+            {allLeads.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center space-y-3">
+                    <span className="material-symbols-outlined text-4xl text-gray-300">contact_mail</span>
+                    <p className="text-gray-400 font-medium">No leads yet.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto bg-white rounded-2xl border border-gray-100">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                <th className="px-6 py-4 text-left">Name</th>
+                                <th className="px-6 py-4 text-left">Email</th>
+                                <th className="px-6 py-4 text-left">Type</th>
+                                <th className="px-6 py-4 text-left">Status</th>
+                                <th className="px-6 py-4 text-left">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {allLeads.map(lead => (
+                                <tr key={lead.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-charcoal">{lead.name}</td>
+                                    <td className="px-6 py-4 text-gray-500">{lead.email}</td>
+                                    <td className="px-6 py-4">
+                                        <span className="bg-primary/10 text-primary-dark px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">{lead.type}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${lead.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{lead.status}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-gray-400 text-xs">{new Date(lead.createdAt).toLocaleDateString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </section>
+    );
+
     const renderContent = () => {
         switch (activeTab) {
             case 'Dashboard': return renderDashboard();
             case 'Submissions': return renderSubmissions();
             case 'Business Listings': return renderBusinessListings();
+            case 'Claims': return renderClaims();
+            case 'Leads': return renderLeads();
             case 'Users': return renderUsers();
             case 'Analytics': return renderAnalytics();
             case 'Settings': return renderSettings();
@@ -384,6 +497,8 @@ const AdminDashboardPage: React.FC = () => {
         Dashboard: { title: 'Dashboard', subtitle: `Welcome back, ${user?.name || 'Admin'}! Here's an overview of your directory.` },
         Submissions: { title: 'Submissions', subtitle: 'Review and moderate pending business submissions.' },
         'Business Listings': { title: 'Business Listings', subtitle: 'Manage all approved business listings.' },
+        Claims: { title: 'Business Claims', subtitle: 'Review and approve business ownership claims.' },
+        Leads: { title: 'Leads', subtitle: 'Contact enquiries submitted through business listings.' },
         Users: { title: 'Users', subtitle: 'View and manage registered users.' },
         Analytics: { title: 'Analytics', subtitle: 'Platform statistics at a glance.' },
         Settings: { title: 'Settings', subtitle: 'Manage your admin profile and preferences.' },

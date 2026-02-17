@@ -171,7 +171,7 @@ const HomePage: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         {featuredBusinesses.map(biz => (
-                            <Link to={`/business/${biz.id}`} key={biz.id} className="bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all group">
+                            <Link to={`/business/${biz.slug ?? biz.id}`} key={biz.id} className="bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all group">
                                 <div className="h-44 overflow-hidden">
                                     <img src={biz.imageUrl} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt={biz.name} />
                                 </div>
@@ -223,7 +223,7 @@ const HomePage: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {newestBusinesses.map(item => (
-                        <Link to={`/business/${item.id}`} key={item.id} className="bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 p-6 rounded-xl flex items-center gap-5 hover:shadow-md transition-all">
+                        <Link to={`/business/${item.slug ?? item.id}`} key={item.id} className="bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 p-6 rounded-xl flex items-center gap-5 hover:shadow-md transition-all">
                             <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-emerald-600 text-2xl">{getCategoryIcon(item.category)}</span>
                             </div>

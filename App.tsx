@@ -5,7 +5,6 @@ import Footer from './components/Footer';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
-import { initializeDatabase } from './services/db';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const DirectoryPage = lazy(() => import('./pages/DirectoryPage'));
@@ -26,6 +25,7 @@ const HalalLivingPage = lazy(() => import('./pages/HalalLivingPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ReviewPage = lazy(() => import('./pages/ReviewPage'));
+const ClaimBusinessPage = lazy(() => import('./pages/ClaimBusinessPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 const PageLoader = () => (
@@ -39,19 +39,6 @@ const ScrollToTop = () => {
     useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
     return null;
 };
-
-// Initialize seed data on first visit
-initializeDatabase();
-
-// ⚠️ DEMO ONLY — Remove or replace with real auth (e.g. Supabase Auth) before production.
-const PASSWORDS_KEY = 'hb_passwords';
-if (!localStorage.getItem(PASSWORDS_KEY)) {
-    localStorage.setItem(PASSWORDS_KEY, JSON.stringify({
-        'admin@humblehalal.sg': 'admin123',
-        'ahmad@example.com': 'password123',
-        'owner@example.com': 'owner123',
-    }));
-}
 
 const App: React.FC = () => {
     return (
@@ -68,7 +55,8 @@ const App: React.FC = () => {
                                     <Route path="/directory" element={<DirectoryPage />} />
                                     <Route path="/map" element={<DirectoryMapView />} />
                                     <Route path="/categories" element={<CategoryExplorerPage />} />
-                                    <Route path="/business/:id" element={<BusinessDetailPage />} />
+                                    <Route path="/business/:slug" element={<BusinessDetailPage />} />
+                                    <Route path="/claim/:businessId" element={<ProtectedRoute><ClaimBusinessPage /></ProtectedRoute>} />
                                     <Route path="/review/:id" element={<ProtectedRoute><ReviewPage /></ProtectedRoute>} />
                                     <Route path="/events" element={<EventsPage />} />
                                     <Route path="/event/:id" element={<EventDetailPage />} />

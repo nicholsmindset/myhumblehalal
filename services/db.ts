@@ -1,64 +1,153 @@
 /**
- * Database Service - localStorage-backed, Supabase-ready interface.
- *
- * To migrate to Supabase, replace each method's implementation with:
- *   const { data, error } = await supabase.from('table').select('*')...
- * The API signatures stay the same.
+ * Database Service – Supabase implementation.
+ * API signatures are identical to the previous localStorage version.
  */
 
-import { Business, Event, UserReview, User, BlogPost, Notification, Category, Region, ListResult } from '../types';
-import { SEED_BUSINESSES, SEED_EVENTS, SEED_REVIEWS, SEED_BLOG_POSTS, SEED_USERS } from './seed-data';
+import { supabase } from '../src/lib/supabase';
+import type { Tables } from '../src/lib/database.types';
+import {
+    Business, Event, UserReview, User, BlogPost, Notification,
+    Category, Region, ListResult,
+    AppCategory, AppLocation, Lead, BusinessClaim, HalalCertification,
+} from '../types';
 
-// --------------- localStorage helpers ---------------
+// ── DB row type aliases ──────────────────────────────────────────────────────
 
-const KEYS = {
-    businesses: 'hb_businesses',
-    events: 'hb_events',
-    reviews: 'hb_reviews',
-    users: 'hb_users',
-    blogs: 'hb_blogs',
-    notifications: 'hb_notifications',
-    initialized: 'hb_initialized',
-};
+type DbBusiness    = Tables<'businesses'>;
+type DbEvent       = Tables<'events'>;
+type DbReview      = Tables<'reviews'>;
+type DbProfile     = Tables<'profiles'>;
+type DbBlogPost    = Tables<'blog_posts'>;
+type DbNotification = Tables<'notifications'>;
 
-function store<T>(key: string): {
-    getAll: () => T[];
-    set: (data: T[]) => void;
-} {
+// ── Row → App type mappers ───────────────────────────────────────────────────
+
+function mapBusiness(row: DbBusiness): Business {
     return {
-        getAll: () => {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : [];
-        },
-        set: (data: T[]) => {
-            localStorage.setItem(key, JSON.stringify(data));
-        },
+        id:                 row.id,
+        name:               row.name,
+        category:           row.category as Category,
+        address:            row.address,
+        region:             row.region as Region,
+        rating:             Number(row.rating),
+        reviewCount:        row.review_count,
+        imageUrl:           row.image_url,
+        description:        row.description    ?? undefined,
+        openingHours:       row.opening_hours  ?? undefined,
+        phone:              row.phone          ?? undefined,
+        website:            row.website        ?? undefined,
+        email:              row.email          ?? undefined,
+        isVerified:         row.is_verified,
+        isFeatured:         row.is_featured,
+        status:             row.status         as Business['status'],
+        submissionDate:     row.created_at,
+        ownerId:            row.owner_id       ?? undefined,
+        lat:                row.lat            ?? undefined,
+        lng:                row.lng            ?? undefined,
+        tags:               row.tags,
+        priceRange:         (row.price_range   ?? undefined) as Business['priceRange'],
+        slug:               row.slug           ?? undefined,
+        shortDescription:   row.short_description ?? undefined,
+        whatsapp:           row.whatsapp       ?? undefined,
+        isClaimed:          row.is_claimed     ?? false,
+        halalCertification: (row.halal_certification ?? 'self_declared') as HalalCertification,
+        muisCertNumber:     row.muis_cert_number ?? undefined,
+        muisCertExpiry:     row.muis_cert_expiry ?? undefined,
+        listingTier:        (row.listing_tier  ?? 'free') as Business['listingTier'],
+        viewCount:          row.view_count     ?? 0,
     };
 }
 
-// --------------- Initialize seed data on first visit ---------------
-
-const SEED_VERSION = '2';
-
-export function initializeDatabase() {
-    const currentVersion = localStorage.getItem(KEYS.initialized);
-    if (currentVersion === SEED_VERSION) return;
-    store<Business>(KEYS.businesses).set(SEED_BUSINESSES);
-    store<Event>(KEYS.events).set(SEED_EVENTS);
-    store<UserReview>(KEYS.reviews).set(SEED_REVIEWS);
-    store<User>(KEYS.users).set(SEED_USERS);
-    store<BlogPost>(KEYS.blogs).set(SEED_BLOG_POSTS);
-    store<Notification>(KEYS.notifications).set([]);
-    localStorage.setItem(KEYS.initialized, SEED_VERSION);
+function mapEvent(row: DbEvent): Event {
+    return {
+        id:          row.id,
+        title:       row.title,
+        type:        row.type,
+        date:        row.date,
+        time:        row.time,
+        location:    row.location,
+        imageUrl:    row.image_url,
+        description: row.description,
+        isFree:      row.is_free,
+        price:       row.price       ?? undefined,
+        organizer:   row.organizer   ?? undefined,
+        ownerId:     row.owner_id    ?? undefined,
+        status:      row.status      as Event['status'],
+        lat:         row.lat         ?? undefined,
+        lng:         row.lng         ?? undefined,
+    };
 }
 
-// --------------- ID generation ---------------
-
-function genId(prefix: string) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function mapReview(row: DbReview, businessName = ''): UserReview {
+    return {
+        id:           row.id,
+        businessId:   row.business_id,
+        businessName,
+        userId:       row.user_id    ?? undefined,
+        userName:     row.user_name,
+        userAvatar:   row.user_avatar ?? undefined,
+        rating:       row.rating,
+        comment:      row.comment,
+        title:        row.title      ?? undefined,
+        date:         row.created_at,
+        vibeTags:     row.vibe_tags,
+        helpful:      row.helpful,
+    };
 }
 
-// --------------- Businesses ---------------
+async function mapProfile(row: DbProfile): Promise<User> {
+    const { data: bookmarkRows } = await supabase
+        .from('bookmarks')
+        .select('business_id')
+        .eq('user_id', row.id);
+
+    return {
+        id:                  row.id,
+        email:               row.email,
+        name:                row.name,
+        avatar:              row.avatar              ?? undefined,
+        role:                row.role,
+        phone:               row.phone               ?? undefined,
+        createdAt:           row.created_at,
+        bookmarks:           bookmarkRows?.map(b => b.business_id) ?? [],
+        subscription:        row.subscription,
+        subscriptionStatus:  row.subscription_status ?? undefined,
+        subscriptionExpiry:  row.subscription_expiry ?? undefined,
+    };
+}
+
+function mapBlogPost(row: DbBlogPost): BlogPost {
+    return {
+        id:       row.id,
+        title:    row.title,
+        category: row.category,
+        date:     row.published_at,
+        author:   row.author,
+        image:    row.image,
+        excerpt:  row.excerpt,
+        content:  row.content ?? undefined,
+        tags:     row.tags,
+    };
+}
+
+function mapNotification(row: DbNotification): Notification {
+    return {
+        id:        row.id,
+        userId:    row.user_id,
+        title:     row.title,
+        message:   row.message,
+        type:      row.type,
+        read:      row.read,
+        createdAt: row.created_at,
+        link:      row.link ?? undefined,
+    };
+}
+
+// ── No-op: Supabase handles persistence ─────────────────────────────────────
+
+export function initializeDatabase() { /* no-op for Supabase */ }
+
+// ── Businesses ───────────────────────────────────────────────────────────────
 
 export const businesses = {
     list: async (filters?: {
@@ -72,96 +161,178 @@ export const businesses = {
         status?: string;
         ownerId?: string;
     }): Promise<ListResult<Business>> => {
-        let items = store<Business>(KEYS.businesses).getAll();
-        const page = filters?.page ?? 1;
+        const page  = filters?.page  ?? 1;
         const limit = filters?.limit ?? 12;
+        const from  = (page - 1) * limit;
 
-        // Filter by status (default to Approved for public views)
+        let query = supabase
+            .from('businesses')
+            .select('*', { count: 'exact' });
+
+        // Status / visibility filtering
         if (filters?.status) {
-            items = items.filter(b => b.status === filters.status);
+            query = query.eq('status', filters.status);
         } else if (!filters?.ownerId) {
-            items = items.filter(b => b.status === 'Approved');
+            query = query.eq('status', 'Approved');
         }
 
-        if (filters?.ownerId) {
-            items = items.filter(b => b.ownerId === filters.ownerId);
-        }
+        if (filters?.ownerId)  query = query.eq('owner_id', filters.ownerId);
         if (filters?.category && filters.category !== 'All') {
-            items = items.filter(b => b.category === filters.category);
+            query = query.eq('category', filters.category);
         }
         if (filters?.region && filters.region !== 'All') {
-            items = items.filter(b => b.region === filters.region);
+            query = query.eq('region', filters.region);
         }
+        if (filters?.featured) query = query.eq('is_featured', true);
+
         if (filters?.search) {
-            const q = filters.search.toLowerCase();
-            items = items.filter(b =>
-                b.name.toLowerCase().includes(q) ||
-                b.description?.toLowerCase().includes(q) ||
-                b.address.toLowerCase().includes(q) ||
-                b.tags?.some(t => t.toLowerCase().includes(q))
+            const q = filters.search;
+            query = query.or(
+                `name.ilike.%${q}%,description.ilike.%${q}%,address.ilike.%${q}%`
             );
         }
-        if (filters?.featured) {
-            items = items.filter(b => b.isFeatured);
-        }
 
-        // Sort
+        // Sorting
         switch (filters?.sort) {
-            case 'rating': items.sort((a, b) => b.rating - a.rating); break;
-            case 'newest': items.sort((a, b) => (b.submissionDate || '').localeCompare(a.submissionDate || '')); break;
-            case 'reviews': items.sort((a, b) => b.reviewCount - a.reviewCount); break;
-            case 'name': items.sort((a, b) => a.name.localeCompare(b.name)); break;
-            default: items.sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0) || b.rating - a.rating);
+            case 'rating':  query = query.order('rating',       { ascending: false }); break;
+            case 'newest':  query = query.order('created_at',   { ascending: false }); break;
+            case 'reviews': query = query.order('review_count', { ascending: false }); break;
+            case 'name':    query = query.order('name',         { ascending: true  }); break;
+            default:
+                query = query
+                    .order('is_featured', { ascending: false })
+                    .order('rating',      { ascending: false });
         }
 
-        const total = items.length;
-        const start = (page - 1) * limit;
-        const data = items.slice(start, start + limit);
+        const { data, count, error } = await query.range(from, from + limit - 1);
+        if (error) throw error;
 
-        return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+        const total = count ?? 0;
+        return {
+            data:       (data ?? []).map(mapBusiness),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     },
 
     getById: async (id: string): Promise<Business | null> => {
-        const items = store<Business>(KEYS.businesses).getAll();
-        return items.find(b => b.id === id) || null;
+        const { data, error } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error || !data) return null;
+        return mapBusiness(data);
+    },
+
+    getBySlug: async (slug: string): Promise<Business | null> => {
+        // Try slug first, fall back to id for backward-compat with UUID links
+        const { data: bySlug } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('slug', slug)
+            .maybeSingle();
+        if (bySlug) return mapBusiness(bySlug);
+
+        // Fallback: treat slug as UUID id
+        const { data: byId } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', slug)
+            .maybeSingle();
+        if (byId) return mapBusiness(byId);
+        return null;
+    },
+
+    incrementViewCount: async (id: string): Promise<void> => {
+        await supabase.rpc('increment_view_count' as any, { business_id: id }).throwOnError();
     },
 
     create: async (data: Omit<Business, 'id'>): Promise<Business> => {
-        const items = store<Business>(KEYS.businesses).getAll();
-        const business: Business = { id: genId('biz'), ...data };
-        items.push(business);
-        store<Business>(KEYS.businesses).set(items);
-        return business;
+        const { data: row, error } = await supabase
+            .from('businesses')
+            .insert({
+                name:          data.name,
+                category:      data.category,
+                address:       data.address,
+                region:        data.region,
+                image_url:     data.imageUrl,
+                description:   data.description,
+                opening_hours: data.openingHours,
+                phone:         data.phone,
+                website:       data.website,
+                email:         data.email,
+                is_verified:   data.isVerified,
+                is_featured:   data.isFeatured,
+                status:        data.status ?? 'Pending Review',
+                owner_id:      data.ownerId,
+                lat:           data.lat,
+                lng:           data.lng,
+                tags:          data.tags ?? [],
+                price_range:   data.priceRange,
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create business');
+        return mapBusiness(row);
     },
 
     update: async (id: string, data: Partial<Business>): Promise<Business | null> => {
-        const items = store<Business>(KEYS.businesses).getAll();
-        const idx = items.findIndex(b => b.id === id);
-        if (idx === -1) return null;
-        items[idx] = { ...items[idx], ...data };
-        store<Business>(KEYS.businesses).set(items);
-        return items[idx];
+        const updates: Record<string, unknown> = {};
+        if (data.name          !== undefined) updates.name          = data.name;
+        if (data.category      !== undefined) updates.category      = data.category;
+        if (data.address       !== undefined) updates.address       = data.address;
+        if (data.region        !== undefined) updates.region        = data.region;
+        if (data.imageUrl      !== undefined) updates.image_url     = data.imageUrl;
+        if (data.description   !== undefined) updates.description   = data.description;
+        if (data.openingHours  !== undefined) updates.opening_hours = data.openingHours;
+        if (data.phone         !== undefined) updates.phone         = data.phone;
+        if (data.website       !== undefined) updates.website       = data.website;
+        if (data.email         !== undefined) updates.email         = data.email;
+        if (data.isVerified    !== undefined) updates.is_verified   = data.isVerified;
+        if (data.isFeatured    !== undefined) updates.is_featured   = data.isFeatured;
+        if (data.status        !== undefined) updates.status        = data.status;
+        if (data.ownerId       !== undefined) updates.owner_id      = data.ownerId;
+        if (data.lat           !== undefined) updates.lat           = data.lat;
+        if (data.lng           !== undefined) updates.lng           = data.lng;
+        if (data.tags          !== undefined) updates.tags          = data.tags;
+        if (data.priceRange    !== undefined) updates.price_range   = data.priceRange;
+
+        const { data: row, error } = await supabase
+            .from('businesses')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error || !row) return null;
+        return mapBusiness(row);
     },
 
     delete: async (id: string): Promise<boolean> => {
-        const items = store<Business>(KEYS.businesses).getAll();
-        const filtered = items.filter(b => b.id !== id);
-        store<Business>(KEYS.businesses).set(filtered);
-        return filtered.length < items.length;
+        const { error } = await supabase
+            .from('businesses')
+            .delete()
+            .eq('id', id);
+        return !error;
     },
 
     getStats: async () => {
-        const items = store<Business>(KEYS.businesses).getAll();
+        const { data } = await supabase
+            .from('businesses')
+            .select('status, is_featured');
+        const rows = data ?? [];
         return {
-            total: items.filter(b => b.status === 'Approved').length,
-            pending: items.filter(b => b.status === 'Pending Review').length,
-            rejected: items.filter(b => b.status === 'Rejected').length,
-            featured: items.filter(b => b.isFeatured).length,
+            total:    rows.filter(b => b.status === 'Approved').length,
+            pending:  rows.filter(b => b.status === 'Pending Review').length,
+            rejected: rows.filter(b => b.status === 'Rejected').length,
+            featured: rows.filter(b => b.is_featured).length,
         };
     },
 };
 
-// --------------- Events ---------------
+// ── Events ───────────────────────────────────────────────────────────────────
 
 export const events = {
     list: async (filters?: {
@@ -171,241 +342,545 @@ export const events = {
         limit?: number;
         ownerId?: string;
     }): Promise<ListResult<Event>> => {
-        let items = store<Event>(KEYS.events).getAll();
-        const page = filters?.page ?? 1;
+        const page  = filters?.page  ?? 1;
         const limit = filters?.limit ?? 12;
+        const from  = (page - 1) * limit;
+
+        let query = supabase
+            .from('events')
+            .select('*', { count: 'exact' });
 
         if (filters?.ownerId) {
-            items = items.filter(e => e.ownerId === filters.ownerId);
+            query = query.eq('owner_id', filters.ownerId);
+        } else {
+            query = query.eq('status', 'Approved');
         }
+
         if (filters?.type && filters.type !== 'All') {
-            items = items.filter(e => e.type === filters.type);
+            query = query.eq('type', filters.type);
         }
+
         if (filters?.search) {
-            const q = filters.search.toLowerCase();
-            items = items.filter(e =>
-                e.title.toLowerCase().includes(q) ||
-                e.description.toLowerCase().includes(q) ||
-                e.location.toLowerCase().includes(q)
-            );
+            const q = filters.search;
+            query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%,location.ilike.%${q}%`);
         }
 
-        const total = items.length;
-        const start = (page - 1) * limit;
-        const data = items.slice(start, start + limit);
+        query = query.order('created_at', { ascending: false });
 
-        return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+        const { data, count, error } = await query.range(from, from + limit - 1);
+        if (error) throw error;
+
+        const total = count ?? 0;
+        return {
+            data:       (data ?? []).map(mapEvent),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     },
 
     getById: async (id: string): Promise<Event | null> => {
-        return store<Event>(KEYS.events).getAll().find(e => e.id === id) || null;
+        const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error || !data) return null;
+        return mapEvent(data);
     },
 
     create: async (data: Omit<Event, 'id'>): Promise<Event> => {
-        const items = store<Event>(KEYS.events).getAll();
-        const event: Event = { id: genId('evt'), ...data };
-        items.push(event);
-        store<Event>(KEYS.events).set(items);
-        return event;
+        const { data: row, error } = await supabase
+            .from('events')
+            .insert({
+                title:       data.title,
+                type:        data.type,
+                date:        data.date,
+                time:        data.time,
+                location:    data.location,
+                image_url:   data.imageUrl,
+                description: data.description,
+                is_free:     data.isFree ?? true,
+                price:       data.price,
+                organizer:   data.organizer,
+                owner_id:    data.ownerId,
+                status:      data.status ?? 'Pending Review',
+                lat:         data.lat,
+                lng:         data.lng,
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create event');
+        return mapEvent(row);
     },
 
     update: async (id: string, data: Partial<Event>): Promise<Event | null> => {
-        const items = store<Event>(KEYS.events).getAll();
-        const idx = items.findIndex(e => e.id === id);
-        if (idx === -1) return null;
-        items[idx] = { ...items[idx], ...data };
-        store<Event>(KEYS.events).set(items);
-        return items[idx];
+        const updates: Record<string, unknown> = {};
+        if (data.title       !== undefined) updates.title       = data.title;
+        if (data.type        !== undefined) updates.type        = data.type;
+        if (data.date        !== undefined) updates.date        = data.date;
+        if (data.time        !== undefined) updates.time        = data.time;
+        if (data.location    !== undefined) updates.location    = data.location;
+        if (data.imageUrl    !== undefined) updates.image_url   = data.imageUrl;
+        if (data.description !== undefined) updates.description = data.description;
+        if (data.isFree      !== undefined) updates.is_free     = data.isFree;
+        if (data.price       !== undefined) updates.price       = data.price;
+        if (data.organizer   !== undefined) updates.organizer   = data.organizer;
+        if (data.status      !== undefined) updates.status      = data.status;
+        if (data.lat         !== undefined) updates.lat         = data.lat;
+        if (data.lng         !== undefined) updates.lng         = data.lng;
+
+        const { data: row, error } = await supabase
+            .from('events')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error || !row) return null;
+        return mapEvent(row);
     },
 
     delete: async (id: string): Promise<boolean> => {
-        const items = store<Event>(KEYS.events).getAll();
-        const filtered = items.filter(e => e.id !== id);
-        store<Event>(KEYS.events).set(filtered);
-        return filtered.length < items.length;
+        const { error } = await supabase.from('events').delete().eq('id', id);
+        return !error;
     },
 };
 
-// --------------- Reviews ---------------
+// ── Reviews ──────────────────────────────────────────────────────────────────
 
 export const reviews = {
     listByBusiness: async (businessId: string): Promise<UserReview[]> => {
-        return store<UserReview>(KEYS.reviews).getAll().filter(r => r.businessId === businessId);
+        const { data, error } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('business_id', businessId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(r => mapReview(r));
     },
 
     listByUser: async (userId: string): Promise<UserReview[]> => {
-        return store<UserReview>(KEYS.reviews).getAll().filter(r => r.userId === userId);
+        const { data, error } = await supabase
+            .from('reviews')
+            .select('*, businesses(name)')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(r => {
+            const biz = r.businesses as { name: string } | null;
+            return mapReview(r, biz?.name ?? '');
+        });
     },
 
     listAll: async (): Promise<UserReview[]> => {
-        return store<UserReview>(KEYS.reviews).getAll();
+        const { data, error } = await supabase
+            .from('reviews')
+            .select('*, businesses(name)')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(r => {
+            const biz = r.businesses as { name: string } | null;
+            return mapReview(r, biz?.name ?? '');
+        });
     },
 
     create: async (data: Omit<UserReview, 'id'>): Promise<UserReview> => {
-        const allReviews = store<UserReview>(KEYS.reviews).getAll();
-        const review: UserReview = { id: genId('rev'), ...data };
-        allReviews.push(review);
-        store<UserReview>(KEYS.reviews).set(allReviews);
-
-        // Update business rating and review count
-        const allBusinesses = store<Business>(KEYS.businesses).getAll();
-        const bizIdx = allBusinesses.findIndex(b => b.id === data.businessId);
-        if (bizIdx !== -1) {
-            const bizReviews = allReviews.filter(r => r.businessId === data.businessId);
-            const avgRating = bizReviews.reduce((sum, r) => sum + r.rating, 0) / bizReviews.length;
-            allBusinesses[bizIdx].rating = Math.round(avgRating * 10) / 10;
-            allBusinesses[bizIdx].reviewCount = bizReviews.length;
-            store<Business>(KEYS.businesses).set(allBusinesses);
-        }
-
-        return review;
+        const { data: row, error } = await supabase
+            .from('reviews')
+            .insert({
+                business_id:  data.businessId,
+                user_id:      data.userId,
+                user_name:    data.userName,
+                user_avatar:  data.userAvatar,
+                rating:       data.rating,
+                comment:      data.comment,
+                title:        data.title,
+                vibe_tags:    data.vibeTags ?? [],
+                helpful:      data.helpful ?? 0,
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create review');
+        // DB trigger auto-updates businesses.rating and review_count
+        return mapReview(row, data.businessName);
     },
 
     update: async (id: string, data: Partial<UserReview>): Promise<UserReview | null> => {
-        const items = store<UserReview>(KEYS.reviews).getAll();
-        const idx = items.findIndex(r => r.id === id);
-        if (idx === -1) return null;
-        items[idx] = { ...items[idx], ...data };
-        store<UserReview>(KEYS.reviews).set(items);
-        return items[idx];
+        const updates: Record<string, unknown> = {};
+        if (data.rating    !== undefined) updates.rating     = data.rating;
+        if (data.comment   !== undefined) updates.comment    = data.comment;
+        if (data.title     !== undefined) updates.title      = data.title;
+        if (data.vibeTags  !== undefined) updates.vibe_tags  = data.vibeTags;
+        if (data.helpful   !== undefined) updates.helpful    = data.helpful;
+
+        const { data: row, error } = await supabase
+            .from('reviews')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error || !row) return null;
+        return mapReview(row);
     },
 
     delete: async (id: string): Promise<boolean> => {
-        const items = store<UserReview>(KEYS.reviews).getAll();
-        const review = items.find(r => r.id === id);
-        const filtered = items.filter(r => r.id !== id);
-        store<UserReview>(KEYS.reviews).set(filtered);
-
-        // Re-calc business rating
-        if (review) {
-            const allBusinesses = store<Business>(KEYS.businesses).getAll();
-            const bizIdx = allBusinesses.findIndex(b => b.id === review.businessId);
-            if (bizIdx !== -1) {
-                const remaining = filtered.filter(r => r.businessId === review.businessId);
-                allBusinesses[bizIdx].reviewCount = remaining.length;
-                allBusinesses[bizIdx].rating = remaining.length > 0
-                    ? Math.round(remaining.reduce((s, r) => s + r.rating, 0) / remaining.length * 10) / 10
-                    : 0;
-                store<Business>(KEYS.businesses).set(allBusinesses);
-            }
-        }
-
-        return filtered.length < items.length;
+        const { error } = await supabase.from('reviews').delete().eq('id', id);
+        // DB trigger auto-updates businesses.rating and review_count
+        return !error;
     },
 };
 
-// --------------- Users ---------------
+// ── Users / Profiles ─────────────────────────────────────────────────────────
 
 export const users = {
     getById: async (id: string): Promise<User | null> => {
-        return store<User>(KEYS.users).getAll().find(u => u.id === id) || null;
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error || !data) return null;
+        return mapProfile(data);
     },
 
     getByEmail: async (email: string): Promise<User | null> => {
-        return store<User>(KEYS.users).getAll().find(u => u.email === email) || null;
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', email.toLowerCase())
+            .single();
+        if (error || !data) return null;
+        return mapProfile(data);
     },
 
     create: async (data: Omit<User, 'id'>): Promise<User> => {
-        const items = store<User>(KEYS.users).getAll();
-        const user: User = { id: genId('usr'), ...data };
-        items.push(user);
-        store<User>(KEYS.users).set(items);
-        return user;
+        // Profiles are auto-created by the auth trigger; this is a direct insert fallback.
+        const { data: row, error } = await supabase
+            .from('profiles')
+            .insert({
+                id:                  crypto.randomUUID(),
+                email:               data.email,
+                name:                data.name,
+                avatar:              data.avatar,
+                role:                data.role,
+                phone:               data.phone,
+                subscription:        data.subscription,
+                subscription_status: data.subscriptionStatus,
+                subscription_expiry: data.subscriptionExpiry,
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create user');
+        return mapProfile(row);
     },
 
     update: async (id: string, data: Partial<User>): Promise<User | null> => {
-        const items = store<User>(KEYS.users).getAll();
-        const idx = items.findIndex(u => u.id === id);
-        if (idx === -1) return null;
-        items[idx] = { ...items[idx], ...data };
-        store<User>(KEYS.users).set(items);
-        return items[idx];
+        const updates: Record<string, unknown> = {};
+        if (data.name               !== undefined) updates.name                = data.name;
+        if (data.avatar             !== undefined) updates.avatar              = data.avatar;
+        if (data.role               !== undefined) updates.role                = data.role;
+        if (data.phone              !== undefined) updates.phone               = data.phone;
+        if (data.subscription       !== undefined) updates.subscription        = data.subscription;
+        if (data.subscriptionStatus !== undefined) updates.subscription_status = data.subscriptionStatus;
+        if (data.subscriptionExpiry !== undefined) updates.subscription_expiry = data.subscriptionExpiry;
+
+        const { data: row, error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error || !row) return null;
+        return mapProfile(row);
     },
 
     list: async (): Promise<User[]> => {
-        return store<User>(KEYS.users).getAll();
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return Promise.all((data ?? []).map(mapProfile));
     },
 
     getStats: async () => {
-        const items = store<User>(KEYS.users).getAll();
+        const { data } = await supabase.from('profiles').select('role');
+        const rows = data ?? [];
         return {
-            total: items.length,
-            admins: items.filter(u => u.role === 'admin').length,
-            owners: items.filter(u => u.role === 'business_owner').length,
+            total:  rows.length,
+            admins: rows.filter(u => u.role === 'admin').length,
+            owners: rows.filter(u => u.role === 'business_owner').length,
         };
     },
 
     toggleBookmark: async (userId: string, businessId: string): Promise<boolean> => {
-        const items = store<User>(KEYS.users).getAll();
-        const idx = items.findIndex(u => u.id === userId);
-        if (idx === -1) return false;
-        const bookmarks = items[idx].bookmarks || [];
-        const isBookmarked = bookmarks.includes(businessId);
-        items[idx].bookmarks = isBookmarked
-            ? bookmarks.filter(id => id !== businessId)
-            : [...bookmarks, businessId];
-        store<User>(KEYS.users).set(items);
-        return !isBookmarked; // returns new bookmark state
+        const { data: existing } = await supabase
+            .from('bookmarks')
+            .select('user_id')
+            .eq('user_id', userId)
+            .eq('business_id', businessId)
+            .maybeSingle();
+
+        if (existing) {
+            await supabase
+                .from('bookmarks')
+                .delete()
+                .eq('user_id', userId)
+                .eq('business_id', businessId);
+            return false; // no longer bookmarked
+        } else {
+            await supabase
+                .from('bookmarks')
+                .insert({ user_id: userId, business_id: businessId });
+            return true; // now bookmarked
+        }
     },
 };
 
-// --------------- Blog ---------------
+// ── Blog ─────────────────────────────────────────────────────────────────────
 
 export const blogs = {
-    list: async (filters?: { category?: string; page?: number; limit?: number }): Promise<ListResult<BlogPost>> => {
-        let items = store<BlogPost>(KEYS.blogs).getAll();
-        const page = filters?.page ?? 1;
+    list: async (filters?: {
+        category?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<ListResult<BlogPost>> => {
+        const page  = filters?.page  ?? 1;
         const limit = filters?.limit ?? 6;
+        const from  = (page - 1) * limit;
+
+        let query = supabase
+            .from('blog_posts')
+            .select('*', { count: 'exact' })
+            .order('published_at', { ascending: false });
 
         if (filters?.category && filters.category !== 'All') {
-            items = items.filter(b => b.category === filters.category);
+            query = query.eq('category', filters.category);
         }
 
-        const total = items.length;
-        const start = (page - 1) * limit;
-        const data = items.slice(start, start + limit);
-        return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+        const { data, count, error } = await query.range(from, from + limit - 1);
+        if (error) throw error;
+
+        const total = count ?? 0;
+        return {
+            data:       (data ?? []).map(mapBlogPost),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     },
 
     getById: async (id: string): Promise<BlogPost | null> => {
-        return store<BlogPost>(KEYS.blogs).getAll().find(b => b.id === id) || null;
+        const { data, error } = await supabase
+            .from('blog_posts')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (error || !data) return null;
+        return mapBlogPost(data);
     },
 };
 
-// --------------- Notifications ---------------
+// ── Notifications ─────────────────────────────────────────────────────────────
 
 export const notifications = {
     listByUser: async (userId: string): Promise<Notification[]> => {
-        return store<Notification>(KEYS.notifications).getAll()
-            .filter(n => n.userId === userId)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(mapNotification);
     },
 
     create: async (data: Omit<Notification, 'id'>): Promise<Notification> => {
-        const items = store<Notification>(KEYS.notifications).getAll();
-        const notif: Notification = { id: genId('ntf'), ...data };
-        items.push(notif);
-        store<Notification>(KEYS.notifications).set(items);
-        return notif;
+        const { data: row, error } = await supabase
+            .from('notifications')
+            .insert({
+                user_id:    data.userId,
+                title:      data.title,
+                message:    data.message,
+                type:       data.type,
+                read:       data.read ?? false,
+                link:       data.link,
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create notification');
+        return mapNotification(row);
     },
 
     markRead: async (id: string): Promise<void> => {
-        const items = store<Notification>(KEYS.notifications).getAll();
-        const idx = items.findIndex(n => n.id === id);
-        if (idx !== -1) {
-            items[idx].read = true;
-            store<Notification>(KEYS.notifications).set(items);
-        }
+        await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('id', id);
     },
 
     markAllRead: async (userId: string): Promise<void> => {
-        const items = store<Notification>(KEYS.notifications).getAll();
-        items.forEach(n => { if (n.userId === userId) n.read = true; });
-        store<Notification>(KEYS.notifications).set(items);
+        await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('user_id', userId)
+            .eq('read', false);
     },
 
     unreadCount: async (userId: string): Promise<number> => {
-        return store<Notification>(KEYS.notifications).getAll()
-            .filter(n => n.userId === userId && !n.read).length;
+        const { count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('read', false);
+        return count ?? 0;
+    },
+};
+
+// ── Categories ────────────────────────────────────────────────────────────────
+
+export const categories = {
+    list: async (): Promise<AppCategory[]> => {
+        const { data, error } = await supabase
+            .from('categories')
+            .select('id, name, slug, icon, display_order, is_active')
+            .eq('is_active', true)
+            .order('display_order', { ascending: true });
+        if (error) throw error;
+        return (data ?? []).map(row => ({
+            id:           row.id,
+            name:         row.name,
+            slug:         row.slug,
+            icon:         row.icon ?? undefined,
+            displayOrder: row.display_order,
+            isActive:     row.is_active,
+        }));
+    },
+};
+
+// ── Locations ─────────────────────────────────────────────────────────────────
+
+export const locations = {
+    list: async (): Promise<AppLocation[]> => {
+        const { data, error } = await supabase
+            .from('locations')
+            .select('id, name, slug, type, region, lat, lng')
+            .order('name', { ascending: true });
+        if (error) throw error;
+        return (data ?? []).map(row => ({
+            id:     row.id,
+            name:   row.name,
+            slug:   row.slug,
+            type:   row.type as AppLocation['type'],
+            region: row.region ?? undefined,
+            lat:    row.lat    ?? undefined,
+            lng:    row.lng    ?? undefined,
+        }));
+    },
+};
+
+// ── Leads ─────────────────────────────────────────────────────────────────────
+
+export const leads = {
+    create: async (data: Omit<Lead, 'id' | 'createdAt'>): Promise<Lead> => {
+        const { data: row, error } = await supabase
+            .from('leads')
+            .insert({
+                business_id: data.businessId,
+                name:        data.name,
+                email:       data.email,
+                phone:       data.phone,
+                type:        data.type,
+                message:     data.message,
+                status:      data.status ?? 'new',
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create lead');
+        return {
+            id:         row.id,
+            businessId: row.business_id,
+            name:       row.name,
+            email:      row.email,
+            phone:      row.phone ?? undefined,
+            type:       row.type,
+            message:    row.message,
+            status:     row.status,
+            createdAt:  row.created_at,
+        };
+    },
+
+    listByBusiness: async (businessId: string): Promise<Lead[]> => {
+        const { data, error } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('business_id', businessId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(row => ({
+            id:         row.id,
+            businessId: row.business_id,
+            name:       row.name,
+            email:      row.email,
+            phone:      row.phone ?? undefined,
+            type:       row.type,
+            message:    row.message,
+            status:     row.status,
+            createdAt:  row.created_at,
+        }));
+    },
+};
+
+// ── Business Claims ───────────────────────────────────────────────────────────
+
+export const businessClaims = {
+    create: async (data: Omit<BusinessClaim, 'id' | 'createdAt'>): Promise<BusinessClaim> => {
+        const { data: row, error } = await supabase
+            .from('business_claims')
+            .insert({
+                business_id: data.businessId,
+                user_id:     data.userId,
+                proof_url:   data.proofUrl,
+                message:     data.message,
+                status:      data.status ?? 'pending',
+            })
+            .select()
+            .single();
+        if (error || !row) throw error ?? new Error('Failed to create business claim');
+        return {
+            id:         row.id,
+            businessId: row.business_id,
+            userId:     row.user_id,
+            proofUrl:   row.proof_url   ?? undefined,
+            message:    row.message,
+            status:     row.status,
+            createdAt:  row.created_at,
+        };
+    },
+
+    list: async (): Promise<BusinessClaim[]> => {
+        const { data, error } = await supabase
+            .from('business_claims')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(row => ({
+            id:         row.id,
+            businessId: row.business_id,
+            userId:     row.user_id,
+            proofUrl:   row.proof_url   ?? undefined,
+            message:    row.message,
+            status:     row.status,
+            createdAt:  row.created_at,
+        }));
+    },
+
+    updateStatus: async (id: string, status: BusinessClaim['status']): Promise<void> => {
+        const { error } = await supabase
+            .from('business_claims')
+            .update({ status })
+            .eq('id', id);
+        if (error) throw error;
     },
 };

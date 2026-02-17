@@ -55,7 +55,7 @@ const ReviewPage: React.FC = () => {
                 date: new Date().toISOString().split('T')[0],
                 vibeTags: [],
             });
-            navigate(`/business/${business.id}`, { state: { message: 'Your review has been submitted successfully!' } });
+            navigate(`/business/${business.slug ?? business.id}`, { state: { message: 'Your review has been submitted successfully!' } });
         } catch {
             setSubmitting(false);
         }
@@ -92,7 +92,7 @@ const ReviewPage: React.FC = () => {
                     <span className="text-gray-300">/</span>
                     <Link to="/directory" className="hover:text-primary transition-colors">Restaurants</Link>
                     <span className="text-gray-300">/</span>
-                    <Link to={`/business/${business.id}`} className="hover:text-primary transition-colors">{business.name}</Link>
+                    <Link to={`/business/${business.slug ?? business.id}`} className="hover:text-primary transition-colors">{business.name}</Link>
                     <span className="text-gray-300">/</span>
                     <span className="text-charcoal">Write a Review</span>
                 </div>

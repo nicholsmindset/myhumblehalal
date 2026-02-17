@@ -36,8 +36,12 @@ export interface User {
     subscriptionExpiry?: string;
 }
 
+export type HalalCertification = 'muis_certified' | 'muslim_owned' | 'self_declared';
+export type ListingTier = 'free' | 'premium' | 'enterprise';
+
 export interface Business {
     id: string;
+    slug?: string;
     name: string;
     category: Category;
     address: string;
@@ -46,12 +50,20 @@ export interface Business {
     reviewCount: number;
     imageUrl: string;
     description?: string;
+    shortDescription?: string;
     openingHours?: string;
     phone?: string;
+    whatsapp?: string;
     website?: string;
     email?: string;
     isVerified?: boolean;
     isFeatured?: boolean;
+    isClaimed?: boolean;
+    halalCertification?: HalalCertification;
+    muisCertNumber?: string;
+    muisCertExpiry?: string;
+    listingTier?: ListingTier;
+    viewCount?: number;
     status?: SubmissionStatus;
     submissionDate?: string;
     ownerId?: string;
@@ -59,6 +71,47 @@ export interface Business {
     lng?: number;
     tags?: string[];
     priceRange?: '$' | '$$' | '$$$';
+}
+
+export interface AppCategory {
+    id: string;
+    name: string;
+    slug: string;
+    icon?: string;
+    displayOrder: number;
+    isActive: boolean;
+}
+
+export interface AppLocation {
+    id: string;
+    name: string;
+    slug: string;
+    type: 'planning_area' | 'mrt_station' | 'region';
+    region?: string;
+    lat?: number;
+    lng?: number;
+}
+
+export interface Lead {
+    id: string;
+    businessId: string;
+    name: string;
+    email: string;
+    phone?: string;
+    type: 'general' | 'catering' | 'event' | 'quote' | 'partnership';
+    message: string;
+    status: 'new' | 'contacted' | 'converted' | 'closed';
+    createdAt: string;
+}
+
+export interface BusinessClaim {
+    id: string;
+    businessId: string;
+    userId: string;
+    proofUrl?: string;
+    message: string;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: string;
 }
 
 export interface Event {

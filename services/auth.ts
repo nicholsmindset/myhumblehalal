@@ -1,100 +1,137 @@
 /**
- * Auth Service - localStorage-backed, Supabase-ready interface.
+ * Auth Service – Supabase implementation.
+ * API signatures are identical to the previous localStorage version.
  *
- * To migrate to Supabase, replace with:
- *   import { createClient } from '@supabase/supabase-js'
- *   const supabase = createClient(url, key)
- *   supabase.auth.signInWithPassword({ email, password })
+ * Key differences from localStorage version:
+ *  - Passwords are managed by Supabase Auth (never stored client-side)
+ *  - Session persists across page refreshes automatically
+ *  - onAuthStateChange fires on every tab/window as well
  */
 
+import { supabase } from '../src/lib/supabase';
 import { User } from '../types';
-import * as db from './db';
-
-const AUTH_KEY = 'hb_auth_session';
-const PASSWORDS_KEY = 'hb_passwords'; // localStorage-only, Supabase handles this natively
 
 type AuthListener = (user: User | null) => void;
 const listeners: AuthListener[] = [];
 
-function getPasswords(): Record<string, string> {
-    const raw = localStorage.getItem(PASSWORDS_KEY);
-    return raw ? JSON.parse(raw) : {};
-}
+// Module-level cache so getCurrentUser() stays synchronous
+let _currentUser: User | null = null;
 
-function setPasswords(data: Record<string, string>) {
-    localStorage.setItem(PASSWORDS_KEY, JSON.stringify(data));
+// ── Internal helpers ─────────────────────────────────────────────────────────
+
+async function profileToUser(userId: string): Promise<User | null> {
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+    if (error || !profile) return null;
+
+    const { data: bookmarkRows } = await supabase
+        .from('bookmarks')
+        .select('business_id')
+        .eq('user_id', userId);
+
+    return {
+        id:                  profile.id,
+        email:               profile.email,
+        name:                profile.name,
+        avatar:              profile.avatar              ?? undefined,
+        role:                profile.role,
+        phone:               profile.phone               ?? undefined,
+        createdAt:           profile.created_at,
+        bookmarks:           bookmarkRows?.map(b => b.business_id) ?? [],
+        subscription:        profile.subscription,
+        subscriptionStatus:  profile.subscription_status ?? undefined,
+        subscriptionExpiry:  profile.subscription_expiry ?? undefined,
+    };
 }
 
 function notifyListeners(user: User | null) {
+    _currentUser = user;
     listeners.forEach(fn => fn(user));
 }
+
+// ── Wire up Supabase auth state → module cache ───────────────────────────────
+//
+// This runs once when the module is imported. It:
+//  1. Hydrates _currentUser from any existing session (e.g. page refresh)
+//  2. Keeps _currentUser in sync with every subsequent sign-in / sign-out
+
+supabase.auth.getSession().then(async ({ data: { session } }) => {
+    if (session?.user) {
+        _currentUser = await profileToUser(session.user.id);
+        // Notify after initial hydration so AuthContext picks it up
+        notifyListeners(_currentUser);
+    }
+});
+
+supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.user) {
+        const user = await profileToUser(session.user.id);
+        notifyListeners(user);
+    } else {
+        notifyListeners(null);
+    }
+});
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 export const auth = {
     /**
      * Sign in with email and password.
      */
-    login: async (email: string, password: string): Promise<{ user: User | null; error: string | null }> => {
-        const passwords = getPasswords();
-        const storedPassword = passwords[email.toLowerCase()];
+    login: async (
+        email: string,
+        password: string,
+    ): Promise<{ user: User | null; error: string | null }> => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email.toLowerCase(),
+            password,
+        });
+        if (error) return { user: null, error: error.message };
+        if (!data.user) return { user: null, error: 'Login failed.' };
 
-        if (!storedPassword) {
-            return { user: null, error: 'No account found with this email.' };
-        }
-        if (storedPassword !== password) {
-            return { user: null, error: 'Incorrect password.' };
-        }
-
-        const user = await db.users.getByEmail(email.toLowerCase());
-        if (!user) {
-            return { user: null, error: 'Account data not found.' };
-        }
-
-        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-        notifyListeners(user);
+        const user = await profileToUser(data.user.id);
         return { user, error: null };
     },
 
     /**
-     * Create a new account.
+     * Create a new account and auto sign-in.
      */
-    register: async (email: string, password: string, name: string): Promise<{ user: User | null; error: string | null }> => {
-        const existing = await db.users.getByEmail(email.toLowerCase());
-        if (existing) {
-            return { user: null, error: 'An account with this email already exists.' };
-        }
-
+    register: async (
+        email: string,
+        password: string,
+        name: string,
+    ): Promise<{ user: User | null; error: string | null }> => {
         if (password.length < 6) {
             return { user: null, error: 'Password must be at least 6 characters.' };
         }
 
-        const user = await db.users.create({
+        const { data, error } = await supabase.auth.signUp({
             email: email.toLowerCase(),
-            name,
-            role: 'user',
-            createdAt: new Date().toISOString(),
-            bookmarks: [],
-            subscription: 'free',
+            password,
+            options: { data: { name } },
         });
 
-        // Store password
-        const passwords = getPasswords();
-        passwords[email.toLowerCase()] = password;
-        setPasswords(passwords);
+        if (error) return { user: null, error: error.message };
+        if (!data.user) return { user: null, error: 'Registration failed.' };
 
-        // Auto-login
-        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-        notifyListeners(user);
+        // The DB trigger creates the profile row; update name in case trigger used email prefix
+        await supabase
+            .from('profiles')
+            .update({ name })
+            .eq('id', data.user.id);
 
         // Welcome notification
-        await db.notifications.create({
-            userId: user.id,
-            title: 'Welcome to Humble Halal!',
+        await supabase.from('notifications').insert({
+            user_id: data.user.id,
+            title:   'Welcome to Humble Halal!',
             message: 'Your account has been created. Start exploring halal businesses in Singapore.',
-            type: 'success',
-            read: false,
-            createdAt: new Date().toISOString(),
+            type:    'success',
         });
 
+        const user = await profileToUser(data.user.id);
         return { user, error: null };
     },
 
@@ -102,34 +139,30 @@ export const auth = {
      * Sign out current user.
      */
     logout: async (): Promise<void> => {
-        localStorage.removeItem(AUTH_KEY);
-        notifyListeners(null);
+        await supabase.auth.signOut();
+        // onAuthStateChange will call notifyListeners(null)
     },
 
     /**
-     * Get current logged-in user (synchronous, from session).
+     * Get current logged-in user synchronously from the module cache.
+     * Cache is hydrated on module load and kept current by onAuthStateChange.
      */
-    getCurrentUser: (): User | null => {
-        const raw = localStorage.getItem(AUTH_KEY);
-        return raw ? JSON.parse(raw) : null;
-    },
+    getCurrentUser: (): User | null => _currentUser,
 
     /**
-     * Refresh user data from DB (call after profile updates).
+     * Re-fetch user data from DB (call after profile updates).
      */
     refreshSession: async (): Promise<User | null> => {
-        const current = auth.getCurrentUser();
-        if (!current) return null;
-        const fresh = await db.users.getById(current.id);
-        if (fresh) {
-            localStorage.setItem(AUTH_KEY, JSON.stringify(fresh));
-            notifyListeners(fresh);
-        }
-        return fresh;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return null;
+        const user = await profileToUser(session.user.id);
+        notifyListeners(user);
+        return user;
     },
 
     /**
      * Subscribe to auth state changes.
+     * Returns an unsubscribe function.
      */
     onAuthStateChange: (callback: AuthListener): (() => void) => {
         listeners.push(callback);
@@ -141,17 +174,25 @@ export const auth = {
 
     /**
      * Update password.
+     * Supabase verifies the session; old password check is handled server-side
+     * via reauthentication if required by your Auth settings.
      */
-    updatePassword: async (email: string, oldPassword: string, newPassword: string): Promise<{ error: string | null }> => {
-        const passwords = getPasswords();
-        if (passwords[email.toLowerCase()] !== oldPassword) {
-            return { error: 'Current password is incorrect.' };
-        }
+    updatePassword: async (
+        email: string,
+        oldPassword: string,
+        newPassword: string,
+    ): Promise<{ error: string | null }> => {
         if (newPassword.length < 6) {
             return { error: 'New password must be at least 6 characters.' };
         }
-        passwords[email.toLowerCase()] = newPassword;
-        setPasswords(passwords);
-        return { error: null };
+        // Re-authenticate to verify old password before updating
+        const { error: authError } = await supabase.auth.signInWithPassword({
+            email: email.toLowerCase(),
+            password: oldPassword,
+        });
+        if (authError) return { error: 'Current password is incorrect.' };
+
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        return { error: error?.message ?? null };
     },
 };

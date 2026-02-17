@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:types": "supabase gen types typescript --project-id pbnpuhxihoqrsctvnkte --schema public > src/lib/database.types.ts"
   },
   "dependencies": {
     "@google/genai": "^1.41.0",
+    "@supabase/supabase-js": "^2.95.3",
     "leaflet": "^1.9.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

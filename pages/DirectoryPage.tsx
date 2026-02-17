@@ -222,7 +222,7 @@ const DirectoryPage: React.FC = () => {
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {businessList.map(biz => (
-                                    <Link to={`/business/${biz.id}`} key={biz.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-xl transition-all group">
+                                    <Link to={`/business/${biz.slug ?? biz.id}`} key={biz.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-xl transition-all group">
                                         <div className="h-48 relative overflow-hidden">
                                             <img src={biz.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={biz.name} />
                                             <div className="absolute top-4 left-4">

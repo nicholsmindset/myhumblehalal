@@ -72,7 +72,7 @@ const DirectoryMapView: React.FC = () => {
                         <strong style="font-size:13px">${biz.name}</strong><br/>
                         <span style="color:#666;font-size:11px">${biz.category}</span><br/>
                         <span style="color:#999;font-size:11px">${biz.address}</span><br/>
-                        <a href="#/business/${biz.id}" style="color:#059669;font-size:11px;font-weight:bold;text-decoration:none">View Details &rarr;</a>
+                        <a href="#/business/${biz.slug ?? biz.id}" style="color:#059669;font-size:11px;font-weight:bold;text-decoration:none">View Details &rarr;</a>
                     </div>
                 `);
             marker.on('click', () => setSelected(biz));
@@ -109,7 +109,7 @@ const DirectoryMapView: React.FC = () => {
                 <div className="flex-1 overflow-y-auto">
                     {filtered.map(biz => (
                         <Link
-                            to={`/business/${biz.id}`}
+                            to={`/business/${biz.slug ?? biz.id}`}
                             key={biz.id}
                             onMouseEnter={() => setSelected(biz)}
                             onMouseLeave={() => setSelected(null)}

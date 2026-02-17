@@ -5,9 +5,11 @@ import { businesses, reviews as reviewsDb, users } from '../services/db';
 import { AIService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Business, UserReview } from '../types';
+import HalalBadge from '../components/HalalBadge';
+import LeadForm from '../components/LeadForm';
 
 const BusinessDetailPage: React.FC = () => {
-    const { id } = useParams();
+    const { slug } = useParams<{ slug: string }>();
     const { user, refreshUser } = useAuth();
 
     const [business, setBusiness] = useState<Business | null>(null);
@@ -24,18 +26,18 @@ const BusinessDetailPage: React.FC = () => {
     // Fetch business and reviews
     useEffect(() => {
         const loadData = async () => {
-            if (!id) return;
+            if (!slug) return;
             setIsLoading(true);
-            const [biz, revs] = await Promise.all([
-                businesses.getById(id),
-                reviewsDb.listByBusiness(id),
-            ]);
+            const biz = await businesses.getBySlug(slug);
+            const revs = biz ? await reviewsDb.listByBusiness(biz.id) : [];
             setBusiness(biz);
             setReviewList(revs);
             setIsLoading(false);
+            // Increment view count in background
+            if (biz) businesses.incrementViewCount(biz.id).catch(() => {});
         };
         loadData();
-    }, [id]);
+    }, [slug]);
 
     // Determine bookmark state when user or business changes
     useEffect(() => {
@@ -172,6 +174,11 @@ const BusinessDetailPage: React.FC = () => {
                                     <span className="font-black text-xl dark:text-white">{business.rating}</span>
                                     <span className="text-gray-400 font-bold">({business.reviewCount} reviews)</span>
                                 </div>
+                                {business.halalCertification && (
+                                    <div className="pt-1">
+                                        <HalalBadge certification={business.halalCertification} />
+                                    </div>
+                                )}
                             </div>
                             <div className="flex gap-3">
                                 <button
@@ -337,6 +344,21 @@ const BusinessDetailPage: React.FC = () => {
                             </div>
                          </div>
                     </div>
+
+                    {/* Lead capture form */}
+                    <LeadForm businessId={business.id} businessName={business.name} />
+
+                    {/* Claim business link for unclaimed listings */}
+                    {!business.isClaimed && (
+                        <div className="text-center">
+                            <Link
+                                to={`/claim/${business.id}`}
+                                className="text-xs text-gray-400 hover:text-primary transition-colors font-bold"
+                            >
+                                Are you the owner? Claim this listing →
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
 
