@@ -61,7 +61,7 @@ const AdvertisePage: React.FC = () => {
                                 </li>
                             ))}
                         </ul>
-                        <Link to="/checkout" className={`w-full py-4 rounded-xl font-bold text-center transition-all ${plan.featured ? 'bg-primary text-charcoal hover:bg-primary/90' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200'}`}>
+                        <Link to={plan.price === 'Free' ? '/submit-business' : `/checkout?plan=${plan.name.toLowerCase()}`} className={`w-full py-4 rounded-xl font-bold text-center block transition-all ${plan.featured ? 'bg-primary text-charcoal hover:bg-primary/90' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200'}`}>
                             {plan.cta}
                         </Link>
                     </div>

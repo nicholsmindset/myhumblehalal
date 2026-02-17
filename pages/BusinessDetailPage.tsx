@@ -1,34 +1,71 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MOCK_BUSINESSES } from '../constants';
-import { BackendService } from '../services/api';
+import { businesses, reviews as reviewsDb, users } from '../services/db';
+import { AIService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { Business, UserReview } from '../types';
 
 const BusinessDetailPage: React.FC = () => {
     const { id } = useParams();
-    const business = MOCK_BUSINESSES.find(b => b.id === id) || MOCK_BUSINESSES[0];
+    const { user, refreshUser } = useAuth();
+
+    const [business, setBusiness] = useState<Business | null>(null);
+    const [reviewList, setReviewList] = useState<UserReview[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [aiSummary, setAiSummary] = useState<string | null>(null);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
+    const [isBookmarked, setIsBookmarked] = useState(false);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [reportReason, setReportReason] = useState('');
     const [reportComment, setReportComment] = useState('');
     const [isReporting, setIsReporting] = useState(false);
 
+    // Fetch business and reviews
     useEffect(() => {
+        const loadData = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            const [biz, revs] = await Promise.all([
+                businesses.getById(id),
+                reviewsDb.listByBusiness(id),
+            ]);
+            setBusiness(biz);
+            setReviewList(revs);
+            setIsLoading(false);
+        };
+        loadData();
+    }, [id]);
+
+    // Determine bookmark state when user or business changes
+    useEffect(() => {
+        if (user && business) {
+            setIsBookmarked(user.bookmarks?.includes(business.id) ?? false);
+        }
+    }, [user, business]);
+
+    // AI vibe summary based on real reviews
+    useEffect(() => {
+        if (!business || reviewList.length === 0) {
+            setAiSummary(null);
+            return;
+        }
         const loadAiSummary = async () => {
             setIsLoadingAI(true);
-            const mockReviews = [
-                "The food was incredible! Authentic taste and great service.",
-                "Cozy atmosphere, perfect for a family dinner.",
-                "Must order the Nasi Lemak, it's the best in town!",
-                "Great service but it gets very crowded on weekends."
-            ];
-            const summary = await BackendService.getAIVibeSummary(business.name, mockReviews);
+            const reviewTexts = reviewList.map(r => r.comment);
+            const summary = await AIService.getAIVibeSummary(business.name, reviewTexts);
             setAiSummary(summary || "");
             setIsLoadingAI(false);
         };
         loadAiSummary();
-    }, [business.name]);
+    }, [business, reviewList]);
+
+    const handleToggleBookmark = async () => {
+        if (!user || !business) return;
+        const newState = await users.toggleBookmark(user.id, business.id);
+        setIsBookmarked(newState);
+        await refreshUser();
+    };
 
     const handleReportSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,6 +79,54 @@ const BusinessDetailPage: React.FC = () => {
             setReportComment('');
         }, 1500);
     };
+
+    if (isLoading) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+                {/* Skeleton breadcrumbs */}
+                <div className="flex items-center gap-3">
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse" />
+                    <span className="text-gray-300">/</span>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse" />
+                    <span className="text-gray-300">/</span>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse" />
+                </div>
+                {/* Skeleton gallery */}
+                <div className="grid grid-cols-4 grid-rows-2 gap-4 h-[500px] rounded-[2.5rem] overflow-hidden">
+                    <div className="col-span-2 row-span-2 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    <div className="bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    <div className="bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    <div className="col-span-2 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                </div>
+                {/* Skeleton content */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-white dark:bg-charcoal/20 p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 space-y-4">
+                            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" />
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse" />
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse" />
+                        </div>
+                    </div>
+                    <div className="space-y-8">
+                        <div className="bg-white dark:bg-charcoal/20 p-10 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 h-64 animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!business) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center space-y-6">
+                <span className="material-symbols-outlined text-6xl text-gray-300">search_off</span>
+                <h1 className="text-3xl font-black tracking-tight dark:text-white">Business Not Found</h1>
+                <p className="text-gray-400 font-medium">The listing you are looking for does not exist or has been removed.</p>
+                <Link to="/directory" className="inline-block bg-primary text-charcoal px-8 py-3 rounded-2xl font-black hover:scale-105 transition-all text-xs uppercase tracking-widest shadow-xl shadow-primary/10">
+                    Browse Directory
+                </Link>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
@@ -87,15 +172,21 @@ const BusinessDetailPage: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center text-accent">
-                                        {[...Array(5)].map((_, i) => <span key={i} className="material-symbols-outlined text-xl filled">star</span>)}
+                                        {[...Array(5)].map((_, i) => (
+                                            <span key={i} className={`material-symbols-outlined text-xl ${i < Math.round(business.rating) ? 'filled' : ''}`}>star</span>
+                                        ))}
                                     </div>
                                     <span className="font-black text-xl dark:text-white">{business.rating}</span>
                                     <span className="text-gray-400 font-bold">({business.reviewCount} reviews)</span>
                                 </div>
                             </div>
                             <div className="flex gap-3">
-                                <button className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-charcoal dark:text-white hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
-                                    <span className="material-symbols-outlined">favorite</span>
+                                <button
+                                    onClick={handleToggleBookmark}
+                                    className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
+                                    title={user ? (isBookmarked ? 'Remove from favorites' : 'Add to favorites') : 'Log in to bookmark'}
+                                >
+                                    <span className={`material-symbols-outlined ${isBookmarked ? 'filled text-red-500' : 'text-charcoal dark:text-white'}`}>favorite</span>
                                 </button>
                                 <button className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-charcoal dark:text-white hover:bg-primary/10 hover:text-primary transition-all shadow-sm">
                                     <span className="material-symbols-outlined">share</span>
@@ -105,28 +196,30 @@ const BusinessDetailPage: React.FC = () => {
                     </div>
 
                     {/* AI Vibe Summary Section */}
-                    <div className="bg-charcoal text-white p-10 rounded-[2.5rem] space-y-6 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
-                        <div className="flex items-center gap-3 relative z-10">
-                            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-charcoal shadow-lg">
-                                <span className="material-symbols-outlined text-2xl font-black">auto_awesome</span>
+                    {reviewList.length > 0 && (
+                        <div className="bg-charcoal text-white p-10 rounded-[2.5rem] space-y-6 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
+                            <div className="flex items-center gap-3 relative z-10">
+                                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-charcoal shadow-lg">
+                                    <span className="material-symbols-outlined text-2xl font-black">auto_awesome</span>
+                                </div>
+                                <h2 className="text-2xl font-black tracking-tight">AI Vibe Summary</h2>
                             </div>
-                            <h2 className="text-2xl font-black tracking-tight">AI Vibe Summary</h2>
+                            <div className="relative z-10">
+                                {isLoadingAI ? (
+                                    <div className="space-y-4">
+                                        <div className="h-4 bg-white/10 rounded-full w-3/4 animate-pulse" />
+                                        <div className="h-4 bg-white/10 rounded-full w-1/2 animate-pulse" />
+                                        <div className="h-4 bg-white/10 rounded-full w-2/3 animate-pulse" />
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-300 font-medium leading-relaxed whitespace-pre-line">
+                                        {aiSummary}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="relative z-10">
-                            {isLoadingAI ? (
-                                <div className="space-y-4">
-                                    <div className="h-4 bg-white/10 rounded-full w-3/4 animate-pulse" />
-                                    <div className="h-4 bg-white/10 rounded-full w-1/2 animate-pulse" />
-                                    <div className="h-4 bg-white/10 rounded-full w-2/3 animate-pulse" />
-                                </div>
-                            ) : (
-                                <div className="text-gray-300 font-medium leading-relaxed whitespace-pre-line">
-                                    {aiSummary}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    )}
 
                     <div className="space-y-6">
                         <h2 className="text-3xl font-black tracking-tight dark:text-white">About {business.name}</h2>
@@ -144,25 +237,50 @@ const BusinessDetailPage: React.FC = () => {
                             </Link>
                         </div>
                         <div className="space-y-8">
-                            {[1, 2].map(i => (
-                                <div key={i} className="bg-gray-50 dark:bg-charcoal/30 p-8 rounded-[2rem] flex gap-6 hover:bg-white dark:hover:bg-charcoal/40 hover:shadow-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-gray-800">
-                                    <img src={`https://i.pravatar.cc/150?u=${i + 20}`} className="w-16 h-16 rounded-2xl border-4 border-white dark:border-gray-700 shadow-sm" alt="user" />
-                                    <div className="flex-1 space-y-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="font-black text-lg dark:text-white">Sarah Tan</h4>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">2 weeks ago</p>
-                                            </div>
-                                            <div className="flex items-center text-accent">
-                                                {[...Array(5)].map((_, j) => <span key={j} className="material-symbols-outlined text-sm filled">star</span>)}
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
-                                            The food was incredible! Authentic taste and great service. We tried the Signature Nasi Lemak and it exceeded our expectations.
-                                        </p>
-                                    </div>
+                            {reviewList.length === 0 ? (
+                                <div className="bg-gray-50 dark:bg-charcoal/30 p-8 rounded-[2rem] text-center space-y-3">
+                                    <span className="material-symbols-outlined text-4xl text-gray-300 dark:text-gray-600">rate_review</span>
+                                    <p className="text-gray-400 font-medium">No reviews yet. Be the first to share your experience!</p>
                                 </div>
-                            ))}
+                            ) : (
+                                reviewList.map(review => (
+                                    <div key={review.id} className="bg-gray-50 dark:bg-charcoal/30 p-8 rounded-[2rem] flex gap-6 hover:bg-white dark:hover:bg-charcoal/40 hover:shadow-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-gray-800">
+                                        <img
+                                            src={review.userAvatar || `https://i.pravatar.cc/150?u=${review.userId || review.userName}`}
+                                            className="w-16 h-16 rounded-2xl border-4 border-white dark:border-gray-700 shadow-sm"
+                                            alt={review.userName}
+                                        />
+                                        <div className="flex-1 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="font-black text-lg dark:text-white">{review.userName}</h4>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{review.date}</p>
+                                                </div>
+                                                <div className="flex items-center text-accent">
+                                                    {[...Array(5)].map((_, j) => (
+                                                        <span key={j} className={`material-symbols-outlined text-sm ${j < review.rating ? 'filled' : ''}`}>star</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {review.title && (
+                                                <h5 className="font-bold text-sm dark:text-white">{review.title}</h5>
+                                            )}
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
+                                                {review.comment}
+                                            </p>
+                                            {review.vibeTags && review.vibeTags.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {review.vibeTags.map(tag => (
+                                                        <span key={tag} className="bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -178,28 +296,40 @@ const BusinessDetailPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <p className="font-black text-sm dark:text-white">Opening Hours</p>
-                                    <p className="text-xs text-gray-400 font-medium mt-1">Daily: 11:00 AM - 10:00 PM</p>
-                                    <p className="text-primary text-[10px] font-black uppercase tracking-widest mt-2 flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-primary" /> Open Now
-                                    </p>
+                                    <p className="text-xs text-gray-400 font-medium mt-1">{business.openingHours || 'Contact for hours'}</p>
                                 </div>
                             </div>
-                            <div className="flex items-start gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400">
-                                    <span className="material-symbols-outlined">call</span>
+                            {business.phone && (
+                                <div className="flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400">
+                                        <span className="material-symbols-outlined">call</span>
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-sm dark:text-white">Contact</p>
+                                        <p className="text-xs text-gray-400 font-medium mt-1">{business.phone}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-black text-sm dark:text-white">Contact</p>
-                                    <p className="text-xs text-gray-400 font-medium mt-1">+65 1234 5678</p>
+                            )}
+                            {business.website && (
+                                <div className="flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400">
+                                        <span className="material-symbols-outlined">language</span>
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-sm dark:text-white">Website</p>
+                                        <a href={business.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium mt-1 hover:underline block">
+                                            {business.website}
+                                        </a>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                         <button className="w-full bg-primary text-charcoal font-black py-5 rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-sm uppercase tracking-widest">
                             <span className="material-symbols-outlined">directions</span>
                             Get Directions
                         </button>
 
-                        <button 
+                        <button
                             onClick={() => setIsReportModalOpen(true)}
                             className="w-full text-red-500 font-black py-4 rounded-xl border border-red-500/20 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
                         >
@@ -232,7 +362,7 @@ const BusinessDetailPage: React.FC = () => {
                         <form onSubmit={handleReportSubmit} className="space-y-6">
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Reason for Report</label>
-                                <select 
+                                <select
                                     value={reportReason}
                                     onChange={(e) => setReportReason(e.target.value)}
                                     className="w-full bg-gray-50 dark:bg-gray-800 border-0 rounded-2xl py-4 px-6 text-sm font-bold dark:text-white"
@@ -248,7 +378,7 @@ const BusinessDetailPage: React.FC = () => {
 
                             <div className="space-y-3">
                                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Additional Details</label>
-                                <textarea 
+                                <textarea
                                     value={reportComment}
                                     onChange={(e) => setReportComment(e.target.value)}
                                     placeholder="Please provide more details..."
@@ -257,14 +387,14 @@ const BusinessDetailPage: React.FC = () => {
                             </div>
 
                             <div className="flex gap-4 pt-4">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={() => setIsReportModalOpen(false)}
                                     className="flex-1 py-4 rounded-xl font-black text-sm uppercase tracking-widest text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
                                 >
                                     Cancel
                                 </button>
-                                <button 
+                                <button
                                     type="submit"
                                     disabled={isReporting}
                                     className="flex-1 bg-primary text-charcoal py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"

@@ -1,12 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Navbar: React.FC = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user, logout } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
-        return document.documentElement.classList.contains('dark') || 
+        return document.documentElement.classList.contains('dark') ||
                localStorage.getItem('theme') === 'dark';
     });
 
@@ -20,12 +24,23 @@ const Navbar: React.FC = () => {
         }
     }, [isDarkMode]);
 
+    useEffect(() => {
+        setIsMenuOpen(false);
+        setIsUserMenuOpen(false);
+    }, [location.pathname]);
+
     const navLinks = [
         { name: 'Browse Categories', path: '/categories' },
         { name: 'About Us', path: '/about' },
         { name: 'Add Your Business', path: '/submit-business' },
         { name: 'Contact', path: '/support' },
     ];
+
+    const handleLogout = async () => {
+        await logout();
+        setIsUserMenuOpen(false);
+        navigate('/');
+    };
 
     return (
         <header className="sticky top-0 z-50 bg-white dark:bg-charcoal border-b border-gray-100 dark:border-gray-800 transition-colors">
@@ -42,29 +57,58 @@ const Navbar: React.FC = () => {
 
                     <nav className="hidden lg:flex items-center gap-8">
                         {navLinks.map((link) => (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                className="text-sm font-semibold text-charcoal/80 dark:text-white/80 hover:text-[#006A4E] dark:hover:text-primary transition-colors"
-                            >
-                                {link.name}
-                            </Link>
+                            <Link key={link.path} to={link.path} className="text-sm font-semibold text-charcoal/80 dark:text-white/80 hover:text-[#006A4E] dark:hover:text-primary transition-colors">{link.name}</Link>
                         ))}
                     </nav>
 
-                    <div className="hidden md:flex items-center gap-6">
-                        <button 
-                            onClick={() => setIsDarkMode(!isDarkMode)}
-                            className="p-2 text-charcoal dark:text-white"
-                        >
+                    <div className="hidden md:flex items-center gap-4">
+                        <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 text-charcoal dark:text-white">
                             <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                         </button>
-                        <Link to="/login" className="text-sm font-bold text-charcoal dark:text-white">
-                            Login
-                        </Link>
-                        <Link to="/submit-business" className="bg-[#006A4E] text-white px-6 py-2.5 rounded-md text-sm font-bold hover:bg-[#005a3f] transition-all">
-                            Sign In / Register
-                        </Link>
+
+                        {user ? (
+                            <div className="relative">
+                                <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+                                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary-dark font-black text-sm">{user.name.charAt(0).toUpperCase()}</div>
+                                    <span className="text-sm font-bold text-charcoal dark:text-white hidden lg:block">{user.name}</span>
+                                    <span className="material-symbols-outlined text-gray-400 text-sm">expand_more</span>
+                                </button>
+
+                                {isUserMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+                                        <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-50 py-2 overflow-hidden">
+                                            <div className="px-5 py-4 border-b border-gray-50 dark:border-gray-800">
+                                                <p className="font-bold text-sm dark:text-white">{user.name}</p>
+                                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                                                <span className="inline-block mt-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-primary/10 text-primary-dark">{user.subscription} plan</span>
+                                            </div>
+                                            <Link to="/dashboard" className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                                <span className="material-symbols-outlined text-lg">dashboard</span> Dashboard
+                                            </Link>
+                                            {user.role === 'admin' && (
+                                                <Link to="/admin" className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                                    <span className="material-symbols-outlined text-lg">admin_panel_settings</span> Admin Panel
+                                                </Link>
+                                            )}
+                                            <Link to="/submit-business" className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                                <span className="material-symbols-outlined text-lg">add_business</span> Add Business
+                                            </Link>
+                                            <div className="border-t border-gray-50 dark:border-gray-800 mt-1 pt-1">
+                                                <button onClick={handleLogout} className="w-full flex items-center gap-3 px-5 py-3 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+                                                    <span className="material-symbols-outlined text-lg">logout</span> Sign Out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <Link to="/login" className="text-sm font-bold text-charcoal dark:text-white">Login</Link>
+                                <Link to="/login" className="bg-[#006A4E] text-white px-6 py-2.5 rounded-md text-sm font-bold hover:bg-[#005a3f] transition-all">Sign In / Register</Link>
+                            </>
+                        )}
                     </div>
 
                     <button className="lg:hidden p-2 text-charcoal dark:text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -73,26 +117,23 @@ const Navbar: React.FC = () => {
                 </div>
             </div>
 
-            {/* Mobile Menu */}
             {isMenuOpen && (
                 <div className="lg:hidden bg-white dark:bg-charcoal border-b border-gray-100 dark:border-gray-800 px-4 py-6 space-y-4">
                     {navLinks.map((link) => (
-                        <Link
-                            key={link.path}
-                            to={link.path}
-                            onClick={() => setIsMenuOpen(false)}
-                            className="block text-lg font-bold text-charcoal dark:text-white"
-                        >
-                            {link.name}
-                        </Link>
+                        <Link key={link.path} to={link.path} onClick={() => setIsMenuOpen(false)} className="block text-lg font-bold text-charcoal dark:text-white">{link.name}</Link>
                     ))}
                     <div className="pt-4 flex flex-col gap-3">
-                        <Link to="/login" onClick={() => setIsMenuOpen(false)} className="w-full text-center py-3 rounded-md font-bold bg-gray-50 dark:bg-gray-800 dark:text-white">
-                            Login
-                        </Link>
-                        <Link to="/submit-business" onClick={() => setIsMenuOpen(false)} className="w-full text-center bg-[#006A4E] text-white py-3 rounded-md font-bold">
-                            Sign In / Register
-                        </Link>
+                        {user ? (
+                            <>
+                                <Link to="/dashboard" onClick={() => setIsMenuOpen(false)} className="w-full text-center py-3 rounded-md font-bold bg-gray-50 dark:bg-gray-800 dark:text-white">Dashboard</Link>
+                                <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="w-full text-center py-3 rounded-md font-bold text-red-500 bg-red-50 dark:bg-red-900/10">Sign Out</button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/login" onClick={() => setIsMenuOpen(false)} className="w-full text-center py-3 rounded-md font-bold bg-gray-50 dark:bg-gray-800 dark:text-white">Login</Link>
+                                <Link to="/login" onClick={() => setIsMenuOpen(false)} className="w-full text-center bg-[#006A4E] text-white py-3 rounded-md font-bold">Sign In / Register</Link>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

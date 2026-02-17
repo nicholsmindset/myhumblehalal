@@ -1,12 +1,88 @@
 
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { MOCK_BUSINESSES } from '../constants';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { businesses, reviews } from '../services/db';
+import { useAuth } from '../contexts/AuthContext';
+import { Business } from '../types';
 
 const ReviewPage: React.FC = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const [business, setBusiness] = useState<Business | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+
     const [rating, setRating] = useState(0);
-    const business = MOCK_BUSINESSES.find(b => b.id === id) || MOCK_BUSINESSES[0];
+    const [title, setTitle] = useState('');
+    const [comment, setComment] = useState('');
+
+    const [errors, setErrors] = useState<{ rating?: string; comment?: string }>({});
+
+    useEffect(() => {
+        if (!id) return;
+        businesses.getById(id).then((biz) => {
+            setBusiness(biz);
+            setLoading(false);
+        });
+    }, [id]);
+
+    const validate = (): boolean => {
+        const newErrors: { rating?: string; comment?: string } = {};
+        if (rating === 0) {
+            newErrors.rating = 'Please select a star rating.';
+        }
+        if (comment.length < 50) {
+            newErrors.comment = `Review must be at least 50 characters (currently ${comment.length}).`;
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async () => {
+        if (!validate() || !business || !user) return;
+        setSubmitting(true);
+        try {
+            await reviews.create({
+                businessId: business.id,
+                businessName: business.name,
+                userId: user.id,
+                userName: user.name,
+                rating,
+                comment,
+                title,
+                date: new Date().toISOString().split('T')[0],
+                vibeTags: [],
+            });
+            navigate(`/business/${business.id}`, { state: { message: 'Your review has been submitted successfully!' } });
+        } catch {
+            setSubmitting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="max-w-5xl mx-auto px-4 py-16 flex items-center justify-center min-h-[60vh]">
+                <div className="text-center space-y-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!business) {
+        return (
+            <div className="max-w-5xl mx-auto px-4 py-16 flex items-center justify-center min-h-[60vh]">
+                <div className="text-center space-y-4">
+                    <span className="material-symbols-outlined text-6xl text-gray-200">error</span>
+                    <p className="text-lg font-bold text-gray-400">Business not found.</p>
+                    <Link to="/directory" className="text-primary font-bold hover:underline">Back to Directory</Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -47,9 +123,9 @@ const ReviewPage: React.FC = () => {
                         <h3 className="font-black text-2xl tracking-tight">Rate your overall experience</h3>
                         <div className="flex justify-center gap-4">
                             {[1, 2, 3, 4, 5].map(star => (
-                                <button 
-                                    key={star} 
-                                    onClick={() => setRating(star)}
+                                <button
+                                    key={star}
+                                    onClick={() => { setRating(star); setErrors(prev => ({ ...prev, rating: undefined })); }}
                                     className="p-1 group focus:outline-none transition-transform active:scale-90"
                                 >
                                     <span className={`material-symbols-outlined text-6xl md:text-7xl transition-all duration-300 ${star <= rating ? 'text-accent filled' : 'text-gray-100 group-hover:text-accent/30'}`}>
@@ -58,7 +134,11 @@ const ReviewPage: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-                        <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">Click the stars to rate</p>
+                        {errors.rating ? (
+                            <p className="text-xs font-black text-red-500 uppercase tracking-[0.2em]">{errors.rating}</p>
+                        ) : (
+                            <p className="text-xs font-black text-primary uppercase tracking-[0.2em]">Click the stars to rate</p>
+                        )}
                     </div>
 
                     <div className="h-px bg-gray-100 w-full" />
@@ -67,22 +147,30 @@ const ReviewPage: React.FC = () => {
                     <div className="space-y-10">
                         <div className="space-y-3">
                             <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1">Review Title</label>
-                            <input 
-                                type="text" 
-                                placeholder="What's the most important thing to know?" 
+                            <input
+                                type="text"
+                                placeholder="What's the most important thing to know?"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
                                 className="w-full bg-gray-50 border-0 focus:ring-2 ring-primary py-5 px-8 rounded-2xl text-sm font-bold placeholder:text-gray-300 transition-all"
                             />
                         </div>
 
                         <div className="space-y-3">
                             <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1">Your Review</label>
-                            <textarea 
-                                placeholder="Tell us about the food, service, and atmosphere. Was the food spicy? Was the service fast?" 
-                                className="w-full bg-gray-50 border-0 focus:ring-2 ring-primary py-8 px-8 rounded-3xl text-sm font-bold min-h-[250px] placeholder:text-gray-300 transition-all leading-relaxed"
+                            <textarea
+                                placeholder="Tell us about the food, service, and atmosphere. Was the food spicy? Was the service fast?"
+                                value={comment}
+                                onChange={(e) => { if (e.target.value.length <= 2000) { setComment(e.target.value); setErrors(prev => ({ ...prev, comment: undefined })); } }}
+                                className={`w-full bg-gray-50 border-0 focus:ring-2 ring-primary py-8 px-8 rounded-3xl text-sm font-bold min-h-[250px] placeholder:text-gray-300 transition-all leading-relaxed ${errors.comment ? 'ring-2 ring-red-400' : ''}`}
                             />
                             <div className="flex justify-between items-center px-1">
-                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Min 50 characters</span>
-                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">0 / 2000</span>
+                                {errors.comment ? (
+                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">{errors.comment}</span>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Min 50 characters</span>
+                                )}
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${comment.length >= 2000 ? 'text-red-400' : comment.length >= 50 ? 'text-green-400' : 'text-gray-300'}`}>{comment.length} / 2000</span>
                             </div>
                         </div>
 
@@ -105,14 +193,18 @@ const ReviewPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <button className="w-full bg-primary text-charcoal font-black py-6 rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg group">
-                        Submit Review <span className="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={submitting}
+                        className="w-full bg-primary text-charcoal font-black py-6 rounded-2xl shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg group disabled:opacity-60 disabled:hover:scale-100"
+                    >
+                        {submitting ? 'Submitting...' : 'Submit Review'} <span className="material-symbols-outlined group-hover:translate-x-2 transition-transform">{submitting ? 'hourglass_empty' : 'arrow_forward'}</span>
                     </button>
                 </div>
             </div>
 
             <footer className="text-center pt-20 pb-10 space-y-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">© 2024 Singapore Halal Business Directory. All rights reserved.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">&copy; 2024 Singapore Halal Business Directory. All rights reserved.</p>
                 <div className="flex justify-center gap-10">
                     {['Terms of Service', 'Privacy Policy', 'Review Guidelines'].map(l => (
                         <button key={l} className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-charcoal transition-colors">{l}</button>

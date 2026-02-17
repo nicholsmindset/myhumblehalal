@@ -1,11 +1,65 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MOCK_EVENTS } from '../constants';
+import { events } from '../services/db';
+import { Event } from '../types';
 
 const EventDetailPage: React.FC = () => {
     const { id } = useParams();
-    const event = MOCK_EVENTS.find(e => e.id === id) || MOCK_EVENTS[0];
+    const [event, setEvent] = useState<Event | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchEvent = async () => {
+            setLoading(true);
+            try {
+                if (id) {
+                    const result = await events.getById(id);
+                    setEvent(result);
+                }
+            } catch (error) {
+                console.error('Failed to fetch event:', error);
+                setEvent(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEvent();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="text-center py-24">
+                    <span className="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600 animate-spin">progress_activity</span>
+                    <p className="text-gray-400 mt-4 font-medium">Loading event details...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!event) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+                <div className="flex items-center text-sm text-gray-500 gap-2">
+                    <Link to="/" className="hover:text-primary">Home</Link>
+                    <span className="material-symbols-outlined text-xs">chevron_right</span>
+                    <Link to="/events" className="hover:text-primary">Events</Link>
+                </div>
+                <div className="text-center py-24 bg-gray-50 dark:bg-gray-800/30 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-gray-700">
+                    <span className="material-symbols-outlined text-7xl text-gray-200 dark:text-gray-700 mb-6">event_busy</span>
+                    <h3 className="text-2xl font-black text-gray-400">Event not found</h3>
+                    <p className="text-gray-400 mt-2 font-medium">The event you're looking for doesn't exist or may have been removed.</p>
+                    <Link
+                        to="/events"
+                        className="mt-8 inline-block text-primary font-black uppercase tracking-widest text-xs hover:underline"
+                    >
+                        Browse all events
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">

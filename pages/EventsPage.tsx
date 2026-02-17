@@ -1,35 +1,62 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_EVENTS } from '../constants';
+import { events } from '../services/db';
+import { Event } from '../types';
 
 const EventsPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedType, setSelectedType] = useState<string[]>([]);
-    const [dateRange, setDateRange] = useState('All');
+    const [eventList, setEventList] = useState<Event[]>([]);
+    const [totalEvents, setTotalEvents] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [loading, setLoading] = useState(true);
 
     const eventTypes = ['Bazaar', 'Food Festival', 'Workshop', 'Seminars'];
-    const dateRanges = ['All', 'This Weekend', 'Next Week', 'Next Month'];
 
-    const filteredEvents = useMemo(() => {
-        return MOCK_EVENTS.filter(event => {
-            const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesType = selectedType.length === 0 || selectedType.includes(event.type);
-            
-            // Simplified date filtering logic based on mock data strings
-            let matchesDate = true;
-            if (dateRange === 'This Weekend') {
-                matchesDate = event.date.toLowerCase().includes('mar'); // Mock simulation
-            } else if (dateRange === 'Next Month') {
-                matchesDate = event.date.toLowerCase().includes('apr'); // Mock simulation
+    const fetchEvents = useCallback(async () => {
+        setLoading(true);
+        try {
+            const type = selectedType.length === 1 ? selectedType[0] : undefined;
+            const result = await events.list({
+                type,
+                search: searchQuery || undefined,
+                page: currentPage,
+                limit: 12,
+            });
+
+            let data = result.data;
+
+            // If multiple types are selected, filter client-side
+            if (selectedType.length > 1) {
+                data = data.filter(e => selectedType.includes(e.type));
             }
 
-            return matchesSearch && matchesType && matchesDate;
-        });
-    }, [searchQuery, selectedType, dateRange]);
+            setEventList(data);
+            setTotalEvents(selectedType.length > 1 ? data.length : result.total);
+            setTotalPages(selectedType.length > 1 ? 1 : result.totalPages);
+        } catch (error) {
+            console.error('Failed to fetch events:', error);
+            setEventList([]);
+            setTotalEvents(0);
+            setTotalPages(1);
+        } finally {
+            setLoading(false);
+        }
+    }, [searchQuery, selectedType, currentPage]);
+
+    useEffect(() => {
+        fetchEvents();
+    }, [fetchEvents]);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, selectedType]);
 
     const toggleType = (type: string) => {
-        setSelectedType(prev => 
+        setSelectedType(prev =>
             prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
         );
     };
@@ -67,28 +94,13 @@ const EventsPage: React.FC = () => {
                                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Search</label>
                                 <div className="relative group">
                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-primary transition-colors">search</span>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Event name..." 
-                                        className="w-full pl-10 rounded-xl border-gray-100 dark:border-gray-800 bg-white dark:bg-charcoal text-sm font-bold dark:text-white transition-all focus:ring-primary" 
+                                        placeholder="Event name..."
+                                        className="w-full pl-10 rounded-xl border-gray-100 dark:border-gray-800 bg-white dark:bg-charcoal text-sm font-bold dark:text-white transition-all focus:ring-primary"
                                     />
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Date Range</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {dateRanges.map(range => (
-                                        <button 
-                                            key={range}
-                                            onClick={() => setDateRange(range)}
-                                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${dateRange === range ? 'bg-primary border-primary text-charcoal shadow-lg' : 'bg-white dark:bg-charcoal border-gray-100 dark:border-gray-800 text-gray-400 hover:border-gray-200 dark:hover:border-gray-600'}`}
-                                        >
-                                            {range}
-                                        </button>
-                                    ))}
                                 </div>
                             </div>
 
@@ -97,11 +109,11 @@ const EventsPage: React.FC = () => {
                                 <div className="space-y-2">
                                     {eventTypes.map(type => (
                                         <label key={type} className="flex items-center gap-3 text-sm cursor-pointer group">
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 checked={selectedType.includes(type)}
                                                 onChange={() => toggleType(type)}
-                                                className="rounded-lg text-primary focus:ring-primary border-gray-200 dark:border-gray-800 dark:bg-charcoal w-5 h-5" 
+                                                className="rounded-lg text-primary focus:ring-primary border-gray-200 dark:border-gray-800 dark:bg-charcoal w-5 h-5"
                                             />
                                             <span className={`font-bold transition-colors ${selectedType.includes(type) ? 'text-primary' : 'text-gray-500 group-hover:text-charcoal dark:group-hover:text-white'}`}>{type}</span>
                                         </label>
@@ -115,39 +127,75 @@ const EventsPage: React.FC = () => {
                     <div className="flex-1 space-y-8">
                         <div className="flex justify-between items-baseline">
                             <h2 className="text-3xl font-black tracking-tight dark:text-white">Upcoming Events</h2>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filteredEvents.length} Events found</p>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{totalEvents} Events found</p>
                         </div>
 
-                        {filteredEvents.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {filteredEvents.map(event => (
-                                    <Link to={`/event/${event.id}`} key={event.id} className="bg-white dark:bg-charcoal/20 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden hover:shadow-xl transition-all flex flex-col group">
-                                        <div className="h-64 relative overflow-hidden">
-                                            <img src={event.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={event.title} />
-                                            <div className="absolute top-4 left-4">
-                                                <span className="bg-primary text-charcoal px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">{event.type}</span>
-                                            </div>
-                                        </div>
-                                        <div className="p-8 space-y-4 flex-1">
-                                            <h3 className="text-2xl font-black group-hover:text-primary transition-colors dark:text-white">{event.title}</h3>
-                                            <div className="space-y-3 text-sm font-medium text-gray-500 dark:text-gray-400">
-                                                <p className="flex items-center gap-3"><span className="material-symbols-outlined text-lg text-primary">calendar_today</span> {event.date}</p>
-                                                <p className="flex items-center gap-3"><span className="material-symbols-outlined text-lg text-primary">location_on</span> {event.location}</p>
-                                            </div>
-                                            <button className="w-full bg-primary/10 text-primary dark:bg-primary/5 group-hover:bg-primary group-hover:text-charcoal font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-sm group-hover:shadow-lg">
-                                                View Details
-                                            </button>
-                                        </div>
-                                    </Link>
-                                ))}
+                        {loading ? (
+                            <div className="text-center py-24">
+                                <span className="material-symbols-outlined text-5xl text-gray-300 dark:text-gray-600 animate-spin">progress_activity</span>
+                                <p className="text-gray-400 mt-4 font-medium">Loading events...</p>
                             </div>
+                        ) : eventList.length > 0 ? (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {eventList.map(event => (
+                                        <Link to={`/event/${event.id}`} key={event.id} className="bg-white dark:bg-charcoal/20 border border-gray-100 dark:border-gray-800 rounded-3xl overflow-hidden hover:shadow-xl transition-all flex flex-col group">
+                                            <div className="h-64 relative overflow-hidden">
+                                                <img src={event.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={event.title} />
+                                                <div className="absolute top-4 left-4">
+                                                    <span className="bg-primary text-charcoal px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">{event.type}</span>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 space-y-4 flex-1">
+                                                <h3 className="text-2xl font-black group-hover:text-primary transition-colors dark:text-white">{event.title}</h3>
+                                                <div className="space-y-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    <p className="flex items-center gap-3"><span className="material-symbols-outlined text-lg text-primary">calendar_today</span> {event.date}</p>
+                                                    <p className="flex items-center gap-3"><span className="material-symbols-outlined text-lg text-primary">location_on</span> {event.location}</p>
+                                                </div>
+                                                <button className="w-full bg-primary/10 text-primary dark:bg-primary/5 group-hover:bg-primary group-hover:text-charcoal font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-sm group-hover:shadow-lg">
+                                                    View Details
+                                                </button>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center items-center gap-2 pt-8">
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="px-4 py-2 rounded-xl text-sm font-bold border border-gray-100 dark:border-gray-800 bg-white dark:bg-charcoal text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">chevron_left</span>
+                                        </button>
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-10 h-10 rounded-xl text-sm font-black transition-all ${currentPage === page ? 'bg-primary text-charcoal shadow-lg' : 'bg-white dark:bg-charcoal border border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-600'}`}
+                                            >
+                                                {page}
+                                            </button>
+                                        ))}
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="px-4 py-2 rounded-xl text-sm font-bold border border-gray-100 dark:border-gray-800 bg-white dark:bg-charcoal text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">chevron_right</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="text-center py-24 bg-gray-50 dark:bg-gray-800/30 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-gray-700">
                                 <span className="material-symbols-outlined text-7xl text-gray-200 dark:text-gray-700 mb-6">event_busy</span>
                                 <h3 className="text-2xl font-black text-gray-400">No events found</h3>
                                 <p className="text-gray-400 mt-2 font-medium">Try adjusting your filters or searching for something else.</p>
-                                <button 
-                                    onClick={() => {setSearchQuery(''); setSelectedType([]); setDateRange('All');}}
+                                <button
+                                    onClick={() => {setSearchQuery(''); setSelectedType([]);}}
                                     className="mt-8 text-primary font-black uppercase tracking-widest text-xs hover:underline"
                                 >
                                     Clear all filters
