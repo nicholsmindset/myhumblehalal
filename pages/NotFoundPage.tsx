@@ -17,7 +17,7 @@ const NotFoundPage: React.FC = () => {
                         <div className="relative w-full max-w-lg aspect-square">
                             <div className="absolute inset-0 bg-white rounded-full shadow-2xl flex items-center justify-center overflow-hidden border border-gray-100">
                                 {/* Dotted Grid Background */}
-                                <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#13ec80 2px, transparent 2px)', backgroundSize: '24px 24px' }} />
+                                <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#059669 2px, transparent 2px)', backgroundSize: '24px 24px' }} />
                                 
                                 <div className="relative z-10">
                                     <div className="w-40 h-40 md:w-56 md:h-56 bg-primary rounded-[2.5rem] flex items-center justify-center shadow-3xl shadow-primary/30 animate-bounce duration-[2500ms] ease-in-out relative">
@@ -72,7 +72,7 @@ const NotFoundPage: React.FC = () => {
 
             <footer className="py-12 border-t border-gray-100 px-8 bg-white/50 backdrop-blur-sm relative z-20">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">© 2024 Singapore Halal Business Directory. All rights reserved.</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">&copy; {new Date().getFullYear()} Humble Halal. All rights reserved.</p>
                     <div className="flex flex-wrap justify-center gap-10">
                         {['Privacy Policy', 'Terms of Service', 'Sitemap'].map(l => (
                             <Link key={l} to="#" className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 hover:text-charcoal transition-colors tracking-widest">{l}</Link>

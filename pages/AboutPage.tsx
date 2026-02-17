@@ -5,11 +5,11 @@ const AboutPage: React.FC = () => {
     return (
         <div className="max-w-4xl mx-auto px-4 py-20 space-y-24">
             <section className="text-center space-y-6">
-                <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-tight">About the Singapore Halal <br /> Business Directory</h1>
-                <p className="text-xl text-gray-500 max-w-2xl mx-auto">Your trusted guide to discovering and supporting Halal-certified businesses across the nation.</p>
+                <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-tight">About <br /> Humble Halal</h1>
+                <p className="text-xl text-gray-500 max-w-2xl mx-auto">Your trusted guide to discovering and supporting Halal-certified businesses across Singapore.</p>
                 <div className="pt-8 h-[400px] rounded-3xl overflow-hidden shadow-2xl">
                     <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDup71s2VVfXxtDvX_tz2dgI1cgXEzdCfWqmcB5OUDCf5XiuS_D65zLm2CV6eIFRXtNX0ARqRTs_qD1E43ZVL06qZikpqxfH_iAyT-hO3kfygelIZJHVUTFYgSeeD7CtHFL5NJSs5KsgLEMlqGIf64FX_m42lWnfvg1MjqTcfRVXp4UrWYwAMd-AbGeyOUOarN2uAkwI6nIDv_C1fBKUOI0X3BAogA4ctzDA2TKgQZU2bzHPVriPiSDRu59NupzwPR2EOUoHACdtvg" 
+                        src="https://images.unsplash.com/photo-1525625232717-1c28c31a6132?auto=format&fit=crop&q=80&w=800" 
                         className="w-full h-full object-cover" 
                         alt="Singapore Halal Excellence" 
                     />

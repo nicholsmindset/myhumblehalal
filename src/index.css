@@ -2,11 +2,11 @@
 @plugin "@tailwindcss/forms";
 
 @theme {
-  --color-primary: #13ec80;
-  --color-primary-dark: #006A4E;
-  --color-charcoal: #0d1b14;
-  --color-offwhite: #f6f8f7;
-  --color-accent: #ff9d00;
+  --color-primary: #059669;
+  --color-primary-dark: #064E3B;
+  --color-charcoal: #111827;
+  --color-offwhite: #f9fafb;
+  --color-accent: #f59e0b;
   --font-sans: "Work Sans", sans-serif;
   --font-display: "Plus Jakarta Sans", sans-serif;
 }

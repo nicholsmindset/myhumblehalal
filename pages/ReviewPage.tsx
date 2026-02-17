@@ -204,10 +204,10 @@ const ReviewPage: React.FC = () => {
             </div>
 
             <footer className="text-center pt-20 pb-10 space-y-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">&copy; 2024 Singapore Halal Business Directory. All rights reserved.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">&copy; {new Date().getFullYear()} Humble Halal. All rights reserved.</p>
                 <div className="flex justify-center gap-10">
                     {['Terms of Service', 'Privacy Policy', 'Review Guidelines'].map(l => (
-                        <button key={l} className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-charcoal transition-colors">{l}</button>
+                        <Link key={l} to="/privacy" className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-charcoal transition-colors">{l}</Link>
                     ))}
                 </div>
             </footer>

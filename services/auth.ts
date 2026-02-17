@@ -88,7 +88,7 @@ export const auth = {
         // Welcome notification
         await db.notifications.create({
             userId: user.id,
-            title: 'Welcome to HalalBiz SG!',
+            title: 'Welcome to Humble Halal!',
             message: 'Your account has been created. Start exploring halal businesses in Singapore.',
             type: 'success',
             read: false,

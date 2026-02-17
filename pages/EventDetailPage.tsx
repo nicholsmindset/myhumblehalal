@@ -154,7 +154,7 @@ const EventDetailPage: React.FC = () => {
                         <div className="flex gap-2">
                             {['facebook', 'instagram', 'twitter'].map(p => (
                                 <button key={p} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:text-primary transition-colors">
-                                    <img src={`https://cdn.simpleicons.org/${p}/0d1b14`} className="w-5 h-5 dark:invert" alt={p} />
+                                    <img src={`https://cdn.simpleicons.org/${p}/111827`} className="w-5 h-5 dark:invert" alt={p} />
                                 </button>
                             ))}
                         </div>
