@@ -387,6 +387,13 @@ export const SEED_BLOG_POSTS: BlogPost[] = [
     },
 ];
 
+// Demo account passwords — seeded as plaintext, auto-migrated to SHA-256 on first login (see auth.ts)
+export const SEED_DEMO_PASSWORDS: Record<string, string> = {
+    'admin@halalbiz.sg': 'admin123',
+    'ahmad@example.com': 'password123',
+    'owner@example.com': 'owner123',
+};
+
 export const SEED_USERS: User[] = [
     {
         id: 'usr_admin', email: 'admin@halalbiz.sg', name: 'Admin',

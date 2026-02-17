@@ -43,15 +43,9 @@ const ScrollToTop = () => {
 // Initialize seed data on first visit
 initializeDatabase();
 
-// Seed demo passwords for demo accounts
-const PASSWORDS_KEY = 'hb_passwords';
-if (!localStorage.getItem(PASSWORDS_KEY)) {
-    localStorage.setItem(PASSWORDS_KEY, JSON.stringify({
-        'admin@halalbiz.sg': 'admin123',
-        'ahmad@example.com': 'password123',
-        'owner@example.com': 'owner123',
-    }));
-}
+// Demo passwords are now seeded inside initializeDatabase() in db.ts.
+// They are stored as plaintext on first visit and auto-migrated to
+// SHA-256 hashes on the first successful login (see auth.ts).
 
 const App: React.FC = () => {
     return (

@@ -1,15 +1,24 @@
 /**
  * Database Service - localStorage-backed, Supabase-ready interface.
  *
+ * Improvements over original:
+ *  - crypto.randomUUID() for collision-free IDs
+ *  - Input validation on create/update via validation.ts
+ *  - localStorage quota error handling
+ *  - Pagination max limits (capped at 100)
+ *  - Role-change guards on users.update()
+ *  - Demo passwords seeded alongside demo users
+ *
  * To migrate to Supabase, replace each method's implementation with:
  *   const { data, error } = await supabase.from('table').select('*')...
  * The API signatures stay the same.
  */
 
-import { Business, Event, UserReview, User, BlogPost, Notification, Category, Region, ListResult } from '../types';
-import { SEED_BUSINESSES, SEED_EVENTS, SEED_REVIEWS, SEED_BLOG_POSTS, SEED_USERS } from './seed-data';
+import { Business, Event, UserReview, User, BlogPost, Notification, ListResult } from '../types';
+import { SEED_BUSINESSES, SEED_EVENTS, SEED_REVIEWS, SEED_BLOG_POSTS, SEED_USERS, SEED_DEMO_PASSWORDS } from './seed-data';
+import { validateBusinessData, validateReviewData, validateEventData, type ValidationError } from './validation';
 
-// --------------- localStorage helpers ---------------
+// ── localStorage helpers ──
 
 const KEYS = {
     businesses: 'hb_businesses',
@@ -18,8 +27,11 @@ const KEYS = {
     users: 'hb_users',
     blogs: 'hb_blogs',
     notifications: 'hb_notifications',
+    passwords: 'hb_passwords',
     initialized: 'hb_initialized',
 };
+
+const MAX_PAGE_LIMIT = 100;
 
 function store<T>(key: string): {
     getAll: () => T[];
@@ -31,14 +43,22 @@ function store<T>(key: string): {
             return raw ? JSON.parse(raw) : [];
         },
         set: (data: T[]) => {
-            localStorage.setItem(key, JSON.stringify(data));
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+            } catch (e: unknown) {
+                if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+                    console.error(`[db] localStorage quota exceeded for key "${key}". Data not saved.`);
+                    throw new Error('Storage quota exceeded. Please clear some data and try again.');
+                }
+                throw e;
+            }
         },
     };
 }
 
-// --------------- Initialize seed data on first visit ---------------
+// ── Initialize seed data on first visit ──
 
-export function initializeDatabase() {
+export function initializeDatabase(): void {
     if (localStorage.getItem(KEYS.initialized)) return;
     store<Business>(KEYS.businesses).set(SEED_BUSINESSES);
     store<Event>(KEYS.events).set(SEED_EVENTS);
@@ -46,16 +66,37 @@ export function initializeDatabase() {
     store<User>(KEYS.users).set(SEED_USERS);
     store<BlogPost>(KEYS.blogs).set(SEED_BLOG_POSTS);
     store<Notification>(KEYS.notifications).set([]);
+
+    // Seed demo account passwords (plaintext — auto-migrated to hashed on first login)
+    if (!localStorage.getItem(KEYS.passwords)) {
+        localStorage.setItem(KEYS.passwords, JSON.stringify(SEED_DEMO_PASSWORDS));
+    }
+
     localStorage.setItem(KEYS.initialized, 'true');
 }
 
-// --------------- ID generation ---------------
+// ── ID generation ──
 
-function genId(prefix: string) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function genId(prefix: string): string {
+    return `${prefix}_${crypto.randomUUID()}`;
 }
 
-// --------------- Businesses ---------------
+// ── Clamp pagination ──
+
+function clampLimit(limit: number | undefined, defaultLimit: number): number {
+    const val = limit ?? defaultLimit;
+    return Math.max(1, Math.min(val, MAX_PAGE_LIMIT));
+}
+
+// ── Validation helper ──
+
+function throwIfInvalid(errors: ValidationError[]): void {
+    if (errors.length > 0) {
+        throw new Error(`Validation failed: ${errors.map(e => `${e.field}: ${e.message}`).join('; ')}`);
+    }
+}
+
+// ── Businesses ──
 
 export const businesses = {
     list: async (filters?: {
@@ -70,8 +111,8 @@ export const businesses = {
         ownerId?: string;
     }): Promise<ListResult<Business>> => {
         let items = store<Business>(KEYS.businesses).getAll();
-        const page = filters?.page ?? 1;
-        const limit = filters?.limit ?? 12;
+        const page = Math.max(1, filters?.page ?? 1);
+        const limit = clampLimit(filters?.limit, 12);
 
         // Filter by status (default to Approved for public views)
         if (filters?.status) {
@@ -124,6 +165,7 @@ export const businesses = {
     },
 
     create: async (data: Omit<Business, 'id'>): Promise<Business> => {
+        throwIfInvalid(validateBusinessData(data as unknown as Record<string, unknown>));
         const items = store<Business>(KEYS.businesses).getAll();
         const business: Business = { id: genId('biz'), ...data };
         items.push(business);
@@ -158,7 +200,7 @@ export const businesses = {
     },
 };
 
-// --------------- Events ---------------
+// ── Events ──
 
 export const events = {
     list: async (filters?: {
@@ -169,8 +211,8 @@ export const events = {
         ownerId?: string;
     }): Promise<ListResult<Event>> => {
         let items = store<Event>(KEYS.events).getAll();
-        const page = filters?.page ?? 1;
-        const limit = filters?.limit ?? 12;
+        const page = Math.max(1, filters?.page ?? 1);
+        const limit = clampLimit(filters?.limit, 12);
 
         if (filters?.ownerId) {
             items = items.filter(e => e.ownerId === filters.ownerId);
@@ -199,6 +241,7 @@ export const events = {
     },
 
     create: async (data: Omit<Event, 'id'>): Promise<Event> => {
+        throwIfInvalid(validateEventData(data as unknown as Record<string, unknown>));
         const items = store<Event>(KEYS.events).getAll();
         const event: Event = { id: genId('evt'), ...data };
         items.push(event);
@@ -223,7 +266,7 @@ export const events = {
     },
 };
 
-// --------------- Reviews ---------------
+// ── Reviews ──
 
 export const reviews = {
     listByBusiness: async (businessId: string): Promise<UserReview[]> => {
@@ -239,6 +282,7 @@ export const reviews = {
     },
 
     create: async (data: Omit<UserReview, 'id'>): Promise<UserReview> => {
+        throwIfInvalid(validateReviewData(data as unknown as Record<string, unknown>));
         const allReviews = store<UserReview>(KEYS.reviews).getAll();
         const review: UserReview = { id: genId('rev'), ...data };
         allReviews.push(review);
@@ -291,7 +335,7 @@ export const reviews = {
     },
 };
 
-// --------------- Users ---------------
+// ── Users ──
 
 export const users = {
     getById: async (id: string): Promise<User | null> => {
@@ -310,11 +354,29 @@ export const users = {
         return user;
     },
 
+    /**
+     * Update user profile fields.
+     * Strips `role` to prevent privilege escalation — use updateRole() instead.
+     */
     update: async (id: string, data: Partial<User>): Promise<User | null> => {
+        const { role: _role, ...safeData } = data;
         const items = store<User>(KEYS.users).getAll();
         const idx = items.findIndex(u => u.id === id);
         if (idx === -1) return null;
-        items[idx] = { ...items[idx], ...data };
+        items[idx] = { ...items[idx], ...safeData };
+        store<User>(KEYS.users).set(items);
+        return items[idx];
+    },
+
+    /**
+     * Update a user's role. Should only be called by admin-level operations.
+     * The caller is responsible for verifying admin authorization.
+     */
+    updateRole: async (userId: string, newRole: User['role']): Promise<User | null> => {
+        const items = store<User>(KEYS.users).getAll();
+        const idx = items.findIndex(u => u.id === userId);
+        if (idx === -1) return null;
+        items[idx].role = newRole;
         store<User>(KEYS.users).set(items);
         return items[idx];
     },
@@ -342,17 +404,17 @@ export const users = {
             ? bookmarks.filter(id => id !== businessId)
             : [...bookmarks, businessId];
         store<User>(KEYS.users).set(items);
-        return !isBookmarked; // returns new bookmark state
+        return !isBookmarked;
     },
 };
 
-// --------------- Blog ---------------
+// ── Blog ──
 
 export const blogs = {
     list: async (filters?: { category?: string; page?: number; limit?: number }): Promise<ListResult<BlogPost>> => {
         let items = store<BlogPost>(KEYS.blogs).getAll();
-        const page = filters?.page ?? 1;
-        const limit = filters?.limit ?? 6;
+        const page = Math.max(1, filters?.page ?? 1);
+        const limit = clampLimit(filters?.limit, 6);
 
         if (filters?.category && filters.category !== 'All') {
             items = items.filter(b => b.category === filters.category);
@@ -369,7 +431,7 @@ export const blogs = {
     },
 };
 
-// --------------- Notifications ---------------
+// ── Notifications ──
 
 export const notifications = {
     listByUser: async (userId: string): Promise<Notification[]> => {
