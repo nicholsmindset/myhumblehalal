@@ -68,7 +68,7 @@ const EventsPage: React.FC = () => {
                 <div className="relative h-[400px] rounded-3xl overflow-hidden flex flex-col items-center justify-center text-center p-8 space-y-6">
                     <div className="absolute inset-0 z-0">
                         <img
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDup71s2VVfXxtDvX_tz2dgI1cgXEzdCfWqmcB5OUDCf5XiuS_D65zLm2CV6eIFRXtNX0ARqRTs_qD1E43ZVL06qZikpqxfH_iAyT-hO3kfygelIZJHVUTFYgSeeD7CtHFL5NJSs5KsgLEMlqGIf64FX_m42lWnfvg1MjqTcfRVXp4UrWYwAMd-AbGeyOUOarN2uAkwI6nIDv_C1fBKUOI0X3BAogA4ctzDA2TKgQZU2bzHPVriPiSDRu59NupzwPR2EOUoHACdtvg"
+                            src="https://images.unsplash.com/photo-1540575467063-178a50e2fd60?auto=format&fit=crop&q=80&w=800"
                             className="w-full h-full object-cover brightness-[0.4]"
                             alt="Bazaar"
                         />

@@ -9,7 +9,7 @@ const AboutPage: React.FC = () => {
                 <p className="text-xl text-gray-500 max-w-2xl mx-auto">Your trusted guide to discovering and supporting Halal-certified businesses across the nation.</p>
                 <div className="pt-8 h-[400px] rounded-3xl overflow-hidden shadow-2xl">
                     <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDup71s2VVfXxtDvX_tz2dgI1cgXEzdCfWqmcB5OUDCf5XiuS_D65zLm2CV6eIFRXtNX0ARqRTs_qD1E43ZVL06qZikpqxfH_iAyT-hO3kfygelIZJHVUTFYgSeeD7CtHFL5NJSs5KsgLEMlqGIf64FX_m42lWnfvg1MjqTcfRVXp4UrWYwAMd-AbGeyOUOarN2uAkwI6nIDv_C1fBKUOI0X3BAogA4ctzDA2TKgQZU2bzHPVriPiSDRu59NupzwPR2EOUoHACdtvg" 
+                        src="https://images.unsplash.com/photo-1525625232717-1c28c31a6132?auto=format&fit=crop&q=80&w=800" 
                         className="w-full h-full object-cover" 
                         alt="Singapore Halal Excellence" 
                     />

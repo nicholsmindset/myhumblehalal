@@ -419,7 +419,7 @@ const AdminDashboardPage: React.FC = () => {
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="w-full bg-[#006A4E] text-white py-4 rounded-xl font-black text-sm hover:opacity-95 transition-all shadow-xl shadow-primary/10"
+                        className="w-full bg-[#059669] text-white py-4 rounded-xl font-black text-sm hover:opacity-95 transition-all shadow-xl shadow-primary/10"
                     >
                         Logout
                     </button>

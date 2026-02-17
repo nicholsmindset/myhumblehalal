@@ -38,15 +38,18 @@ function store<T>(key: string): {
 
 // --------------- Initialize seed data on first visit ---------------
 
+const SEED_VERSION = '2';
+
 export function initializeDatabase() {
-    if (localStorage.getItem(KEYS.initialized)) return;
+    const currentVersion = localStorage.getItem(KEYS.initialized);
+    if (currentVersion === SEED_VERSION) return;
     store<Business>(KEYS.businesses).set(SEED_BUSINESSES);
     store<Event>(KEYS.events).set(SEED_EVENTS);
     store<UserReview>(KEYS.reviews).set(SEED_REVIEWS);
     store<User>(KEYS.users).set(SEED_USERS);
     store<BlogPost>(KEYS.blogs).set(SEED_BLOG_POSTS);
     store<Notification>(KEYS.notifications).set([]);
-    localStorage.setItem(KEYS.initialized, 'true');
+    localStorage.setItem(KEYS.initialized, SEED_VERSION);
 }
 
 // --------------- ID generation ---------------
