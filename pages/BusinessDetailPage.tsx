@@ -139,20 +139,13 @@ const BusinessDetailPage: React.FC = () => {
                 <span className="text-charcoal dark:text-white/80">{business.name}</span>
             </div>
 
-            {/* Gallery Grid */}
-            <div className="grid grid-cols-4 grid-rows-2 gap-4 h-[500px] rounded-[2.5rem] overflow-hidden shadow-2xl">
-                <div className="col-span-2 row-span-2 relative group">
-                    <img src={business.imageUrl} className="w-full h-full object-cover" alt={business.name} />
-                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-all" />
-                </div>
-                <div className="col-span-1 row-span-1">
-                    <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="interior" />
-                </div>
-                <div className="col-span-1 row-span-1">
-                    <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="food" />
-                </div>
-                <div className="col-span-2 row-span-1">
-                    <img src="https://images.unsplash.com/photo-1517248135467-4c7ed9d421bb?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="atmosphere" />
+            {/* Hero Image */}
+            <div className="h-[400px] md:h-[500px] rounded-[2.5rem] overflow-hidden shadow-2xl relative group">
+                <img src={business.imageUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt={business.name} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <div className="absolute bottom-6 left-6 flex items-center gap-3">
+                    <span className="bg-white/90 backdrop-blur-sm text-charcoal text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full">{business.category}</span>
+                    {business.isVerified && <span className="bg-emerald-500 text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full flex items-center gap-1"><span className="material-symbols-outlined text-sm filled">verified</span> Verified</span>}
                 </div>
             </div>
 
@@ -245,11 +238,9 @@ const BusinessDetailPage: React.FC = () => {
                             ) : (
                                 reviewList.map(review => (
                                     <div key={review.id} className="bg-gray-50 dark:bg-charcoal/30 p-8 rounded-[2rem] flex gap-6 hover:bg-white dark:hover:bg-charcoal/40 hover:shadow-xl transition-all border border-transparent hover:border-gray-100 dark:hover:border-gray-800">
-                                        <img
-                                            src={review.userAvatar || `https://i.pravatar.cc/150?u=${review.userId || review.userName}`}
-                                            className="w-16 h-16 rounded-2xl border-4 border-white dark:border-gray-700 shadow-sm"
-                                            alt={review.userName}
-                                        />
+                                        <div className="w-16 h-16 rounded-2xl border-4 border-white dark:border-gray-700 shadow-sm bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                                            <span className="text-emerald-700 dark:text-emerald-400 font-black text-xl">{review.userName.charAt(0).toUpperCase()}</span>
+                                        </div>
                                         <div className="flex-1 space-y-3">
                                             <div className="flex justify-between items-start">
                                                 <div>

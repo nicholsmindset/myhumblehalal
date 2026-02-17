@@ -32,7 +32,7 @@ const LoginPage: React.FC = () => {
     const fillDemo = (type: 'user' | 'admin' | 'owner') => {
         const creds = {
             user: { email: 'ahmad@example.com', password: 'password123' },
-            admin: { email: 'admin@halalbiz.sg', password: 'admin123' },
+            admin: { email: 'admin@humblehalal.sg', password: 'admin123' },
             owner: { email: 'owner@example.com', password: 'owner123' },
         };
         setEmail(creds[type].email);
@@ -56,9 +56,9 @@ const LoginPage: React.FC = () => {
                         </div>
                         <div className="pt-10 flex items-center gap-6 border-t border-white/10">
                             <div className="flex -space-x-5">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="w-14 h-14 rounded-full border-[6px] border-charcoal bg-gray-800 overflow-hidden shadow-2xl">
-                                        <img src={`https://i.pravatar.cc/150?u=user${i+10}`} className="w-full h-full object-cover" alt="user" />
+                                {['A', 'S', 'N'].map((initial, i) => (
+                                    <div key={i} className="w-14 h-14 rounded-full border-[6px] border-charcoal bg-emerald-700 flex items-center justify-center shadow-2xl">
+                                        <span className="text-white font-black text-lg">{initial}</span>
                                     </div>
                                 ))}
                             </div>

@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
                             <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
                                 <span className="material-symbols-outlined text-white text-lg">storefront</span>
                             </div>
-                            <span className="text-base font-black text-white font-display">MyHumbleHalal</span>
+                            <span className="text-base font-black text-white font-display">Humble Halal</span>
                         </div>
                         <p className="text-sm leading-relaxed text-gray-400">Singapore's trusted Halal business directory. Discover certified eateries, services, and shops.</p>
                         <div className="flex gap-3 pt-2">
@@ -61,7 +61,7 @@ const Footer: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-8">
-                    <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} MyHumbleHalal. All rights reserved.</p>
+                    <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} Humble Halal. All rights reserved.</p>
                     <p className="text-xs text-gray-500">Made with care for the Singapore Muslim community</p>
                 </div>
             </div>

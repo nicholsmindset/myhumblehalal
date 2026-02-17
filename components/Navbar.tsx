@@ -53,7 +53,7 @@ const Navbar: React.FC = () => {
                         <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
                             <span className="material-symbols-outlined text-white text-lg">storefront</span>
                         </div>
-                        <span className="text-base font-black tracking-tight text-charcoal dark:text-white font-display">MyHumbleHalal</span>
+                        <span className="text-base font-black tracking-tight text-charcoal dark:text-white font-display">Humble Halal</span>
                     </Link>
 
                     <nav className="hidden lg:flex items-center gap-1">

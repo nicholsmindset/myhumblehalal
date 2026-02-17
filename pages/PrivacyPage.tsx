@@ -45,7 +45,7 @@ const PrivacyPage: React.FC = () => {
                         <div className="space-y-6">
                             <h2 className="text-3xl font-black">Introduction</h2>
                             <p className="text-gray-500 leading-relaxed">
-                                Welcome to the Singapore Halal Business Directory ("Company", "we", "our", "us"). We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices with regards to your personal information, please contact us at privacy@halaldirectory.sg.
+                                Welcome to the Humble Halal ("Company", "we", "our", "us"). We are committed to protecting your personal information and your right to privacy. If you have any questions or concerns about this privacy notice, or our practices with regards to your personal information, please contact us at hello@humblehalal.sg.
                             </p>
                         </div>
                     </div>
@@ -100,10 +100,10 @@ const PrivacyPage: React.FC = () => {
                 <section className="bg-gray-50 rounded-[2.5rem] p-12 space-y-8">
                     <div className="space-y-4">
                         <h2 className="text-3xl font-black">Contact Us</h2>
-                        <p className="text-gray-500">If you have questions or comments about this policy, you may email us at privacy@halaldirectory.sg or by post to:</p>
+                        <p className="text-gray-500">If you have questions or comments about this policy, you may email us at hello@humblehalal.sg or by post to:</p>
                     </div>
                     <div className="bg-white p-8 rounded-3xl shadow-sm space-y-2">
-                        <h4 className="font-black">Singapore Halal Business Directory</h4>
+                        <h4 className="font-black">Humble Halal</h4>
                         <p className="text-sm text-gray-500">123 Business Park Drive</p>
                         <p className="text-sm text-gray-500">Singapore 123456</p>
                         <p className="text-sm text-gray-500">Singapore</p>

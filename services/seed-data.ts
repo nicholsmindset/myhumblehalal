@@ -438,7 +438,7 @@ export const SEED_BLOG_POSTS: BlogPost[] = [
 
 export const SEED_USERS: User[] = [
     {
-        id: 'usr_admin', email: 'admin@halalbiz.sg', name: 'Admin',
+        id: 'usr_admin', email: 'admin@humblehalal.sg', name: 'Admin',
         role: 'admin', createdAt: '2024-01-01', bookmarks: [], subscription: 'corporate',
         subscriptionStatus: 'active',
     },

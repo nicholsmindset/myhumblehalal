@@ -280,7 +280,9 @@ const AdminDashboardPage: React.FC = () => {
                 ) : (
                     allUsers.map((u) => (
                         <div key={u.id} className="p-8 flex items-center gap-6 hover:bg-gray-50/50 transition-colors">
-                            <img src={u.avatar || `https://i.pravatar.cc/150?u=${u.id}`} alt={u.name} className="w-12 h-12 rounded-full border-2 border-gray-100 shrink-0" />
+                            <div className="w-12 h-12 rounded-full border-2 border-gray-100 shrink-0 bg-emerald-100 flex items-center justify-center">
+                                <span className="text-emerald-700 font-black text-base">{u.name.charAt(0).toUpperCase()}</span>
+                            </div>
                             <div className="flex-1 space-y-1">
                                 <p className="font-black text-charcoal">{u.name}</p>
                                 <p className="text-sm text-gray-400 font-medium">{u.email}</p>
@@ -352,7 +354,9 @@ const AdminDashboardPage: React.FC = () => {
                 <div className="space-y-4">
                     <h3 className="text-lg font-black text-charcoal">Admin Profile</h3>
                     <div className="flex items-center gap-6">
-                        <img src={user?.avatar || `https://i.pravatar.cc/150?u=admin`} className="w-20 h-20 rounded-full border-2 border-primary/20" alt="admin" />
+                        <div className="w-20 h-20 rounded-full border-2 border-primary/20 bg-emerald-100 flex items-center justify-center">
+                            <span className="text-emerald-700 font-black text-2xl">{(user?.name || 'A').charAt(0).toUpperCase()}</span>
+                        </div>
                         <div className="space-y-1">
                             <p className="text-xl font-black">{user?.name || 'Admin'}</p>
                             <p className="text-sm text-gray-400 font-medium">{user?.email || 'admin@example.com'}</p>
@@ -411,7 +415,9 @@ const AdminDashboardPage: React.FC = () => {
 
                 <div className="pt-8 border-t border-gray-50 space-y-6">
                     <div className="flex items-center gap-4">
-                        <img src={user?.avatar || `https://i.pravatar.cc/150?u=admin`} className="w-12 h-12 rounded-full border-2 border-primary/20" alt="admin" />
+                        <div className="w-12 h-12 rounded-full border-2 border-primary/20 bg-emerald-100 flex items-center justify-center shrink-0">
+                            <span className="text-emerald-700 font-black text-base">{(user?.name || 'A').charAt(0).toUpperCase()}</span>
+                        </div>
                         <div>
                             <p className="font-bold text-sm">{user?.name || 'Admin'}</p>
                             <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{user?.role === 'admin' ? 'Administrator' : user?.role || 'Administrator'}</p>

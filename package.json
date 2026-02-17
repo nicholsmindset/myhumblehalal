@@ -1,5 +1,5 @@
 {
-  "name": "halalbiz-sg---the-ultimate-halal-directory",
+  "name": "humble-halal",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -18,6 +18,7 @@
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
