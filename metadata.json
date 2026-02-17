@@ -1,0 +1,7 @@
+{
+  "name": "HalalBiz SG - The Ultimate Halal Directory",
+  "description": "A comprehensive directory for halal-certified and Muslim-owned businesses in Singapore, featuring events, categories, and business listings.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
