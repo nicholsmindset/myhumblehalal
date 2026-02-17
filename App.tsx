@@ -43,7 +43,7 @@ const ScrollToTop = () => {
 // Initialize seed data on first visit
 initializeDatabase();
 
-// Seed demo passwords for demo accounts
+// ⚠️ DEMO ONLY — Remove or replace with real auth (e.g. Supabase Auth) before production.
 const PASSWORDS_KEY = 'hb_passwords';
 if (!localStorage.getItem(PASSWORDS_KEY)) {
     localStorage.setItem(PASSWORDS_KEY, JSON.stringify({

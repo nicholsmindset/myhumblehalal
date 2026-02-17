@@ -199,7 +199,7 @@ const HalalLivingPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="bg-[#0b241c] text-white rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden">
+                    <div className="bg-charcoal text-white rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
                         <div className="relative z-10 w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-charcoal">
                             <span className="material-symbols-outlined">mail</span>
